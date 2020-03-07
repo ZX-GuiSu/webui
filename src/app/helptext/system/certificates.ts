@@ -24,9 +24,8 @@ export const helptext_system_certificates = {
     signedby: {
       placeholder: T("Signing Certificate Authority"),
       tooltip: T(
-        'Select a previously imported or created <a\
- href="--docurl--/system.html#cas"\
- target="_blank">CA</a>.'
+        'Select a previously imported or created \
+ <a href="--docurl--/system.html#cas" target="_blank">CA</a>.'
       ),
       validation: [Validators.required]
     },
@@ -199,8 +198,11 @@ export const helptext_system_certificates = {
 
       action_create_acme_certificate: T("Create ACME Certificate"),
 
-      snackbar_open_window_message: T("Opening download window. Make sure pop-ups are enabled in the browser."),
-      snackbar_open_window_action: T("Success"),
+      download_error_dialog: {
+        title: T('Error'),
+        cert_message: T('Error exporting the certificate'),
+        key_message: T('Error exporting the Private Key')
+      }, 
 
       action_delete: T("Delete")
   },
@@ -230,7 +232,12 @@ export const helptext_system_certificates = {
     authenticator: {
       placeholder: T("Authenticator"),
       tooltip: T("Authenticator to validate the Domain. Choose a\
- previously configured ACME DNS authenticator.")
+ previously configured ACME DNS authenticator."),
+    },
+    job_dialog_title: T('Creating...'),
+    error_dialog: {
+      title: T('Error')
     }
+    
   }
 };

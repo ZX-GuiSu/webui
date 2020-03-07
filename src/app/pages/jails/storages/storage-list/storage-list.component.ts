@@ -1,12 +1,13 @@
 import { Component } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
+import { TranslateService } from '@ngx-translate/core';
+
 import { DialogService, WebSocketService } from '../../../../services';
 import { AppLoaderService } from '../../../../services/app-loader/app-loader.service';
 import { Subscription } from 'rxjs';
 import { EntityUtils } from '../../../common/entity/utils';
 import { T } from '../../../../translate-marker';
-import { MatSnackBar } from '@angular/material';
-import { TranslateService } from '@ngx-translate/core';
+import helptext from '../../../../helptext/jails/storage';
 
 @Component({
   selector: 'app-storage-list',
@@ -14,31 +15,17 @@ import { TranslateService } from '@ngx-translate/core';
 })
 export class StorageListComponent {
 
-  public title = "Mount points";
+  public title;
   protected queryCall = 'jail.fstab';
   protected queryCallOption = [];
   protected queryRes: any = [];
   protected route_add: string[] = ['jails', 'storage'];
-  protected route_add_tooltip: string = "Add Mount Point";
   protected route_delete: string[] = ['jails', 'storage'];
   protected route_edit: string[] = ['jails', 'storage'];
 
   protected jailId: string;
   public busy: Subscription;
   protected loaderOpen: boolean = false;
-
-  constructor(protected router: Router, protected aroute: ActivatedRoute, protected dialog: DialogService,
-              protected loader: AppLoaderService, protected ws: WebSocketService, protected snackBar: MatSnackBar,
-              protected translate: TranslateService) {
-    this.aroute.params.subscribe(params => {
-      this.jailId = params['jail'];
-      this.queryCallOption.push(params['jail']);
-      this.queryCallOption.push({ "action": "LIST", "source": "", "destination": "", "fstype": "", "fsoptions": "", "dump": "", "pass": "" });
-      this.route_add.push(params['jail'], 'add');
-      this.route_delete.push(params['jail'], 'delete');
-      this.route_edit.push(params['jail'], 'edit');
-    });
-  }
 
   public columns: Array < any > = [
     { name: T('Source'), prop: 'source', always_display: true },
@@ -53,8 +40,28 @@ export class StorageListComponent {
       key_props: ['source', 'destination']
     },
   };
+  protected entityList: any;
+
+  constructor(protected router: Router, protected aroute: ActivatedRoute, protected dialog: DialogService,
+              protected loader: AppLoaderService, protected ws: WebSocketService,
+              protected translate: TranslateService) {
+    this.aroute.params.subscribe(params => {
+      this.jailId = params['jail'];
+      this.queryCallOption.push(params['jail']);
+      this.queryCallOption.push({ "action": "LIST", "source": "", "destination": "", "fstype": "", "fsoptions": "", "dump": "", "pass": "" });
+      this.route_add.push(params['jail'], 'add');
+      this.route_delete.push(params['jail'], 'delete');
+      this.route_edit.push(params['jail'], 'edit');
+      this.translate.get(T('Mount Points of ')).subscribe(
+        (res) => {
+            this.title = res + this.jailId;
+        }
+      );
+    });
+  }
 
   afterInit(entityTable) {
+    this.entityList = entityTable;
     entityTable.doDelete = this.doDelete;
     entityTable.jailId = this.jailId;
     entityTable.dialog = this.dialog;
@@ -92,7 +99,7 @@ export class StorageListComponent {
       ]
     ]).subscribe((res) => {
       if (res[0] && res[0].state == 'up') {
-        this.snackBar.open(this.jailId + " should not be running when deleting a mountpoint.", 'close', { duration: 5000 });
+        this.dialog.Info(T('Delete Mountpoint'), "<i>" + this.jailId + T("</i> cannot be running when deleting a mountpoint."), '500px', 'info', true);
       } else {
         let deleteMsg =  "Delete Mount Point <b>" + item['source'] + '</b>?';
         this.translate.get(deleteMsg).subscribe((res) => {
@@ -119,7 +126,6 @@ export class StorageListComponent {
   getAddActions() {
     return [{
       label: T("Go Back to Jails"),
-      icon: "reply",
       onClick: () => {
         this.router.navigate(new Array('').concat(['jails']));
       }
@@ -133,10 +139,44 @@ export class StorageListComponent {
       ]
     ]).subscribe((res) => {
       if (res[0] && res[0].state == 'up') {
-        this.snackBar.open(this.jailId + " should not be running when adding a mountpoint.", 'close', { duration: 5000 });
+        this.dialog.Info(T('Add Mountpoint'), "<i>" + this.jailId + "</i> cannot be running when adding a mountpoint.", '500px', 'info', true);
       } else {
         this.router.navigate(new Array('/').concat(this.route_add));
       }
     })
+  }
+
+  getActions(row) {
+    const rowName = row.source.replace("/mnt/", "");
+    const poolName = rowName.split('/')[0];
+    let optionDisabled;
+    rowName.includes('/') ? optionDisabled = false : optionDisabled = true;
+    return [
+      {
+        name: 'edit',
+        id: "edit",
+        icon: 'edit',
+        label: T("Edit"),
+        onClick: (rowinner) => { this.entityList.doEdit(rowinner.id); },
+      }, {
+        id: row.name,
+        icon: 'security',
+        name: "edit_acl",
+        disabled: optionDisabled,
+        matTooltip: helptext.acl_edit_msg,
+        label: helptext.action_edit_acl,
+        onClick: (rowinner) => {
+          const datasetId = rowName;
+          this.router.navigate(
+            ["/"].concat(["storage", "pools", "id", poolName, "dataset", "acl", datasetId]));
+        }
+      }, {
+        name: 'delete',
+        id: "delete",
+        icon: 'delete',
+        label: T("Delete"),
+        onClick: (rowinner) => { this.entityList.doDelete(rowinner); },
+      }
+    ]
   }
 }

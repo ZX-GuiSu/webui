@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { RestService, WebSocketService, NetworkService, StorageService } from '../../../services';
+import { PreferencesService} from 'app/core/services/preferences.service';
 import { FormGroup, Validators, ValidationErrors, FormControl } from '@angular/forms';
 import { Wizard } from '../../common/entity/entity-form/models/wizard.interface';
 import { EntityWizardComponent } from '../../common/entity/entity-wizard/entity-wizard.component';
@@ -9,13 +10,14 @@ import * as _ from 'lodash';
 
 import { VmService } from '../../../services/vm.service';
 import { AppLoaderService } from '../../../services/app-loader/app-loader.service';
-import { MatDialog } from '@angular/material';
+import { MatDialog } from '@angular/material/dialog';
 import { T } from '../../../translate-marker';
 import { DialogService } from '../../../services/dialog.service';
 import helptext from '../../../helptext/vm/vm-wizard/vm-wizard';
 import add_edit_helptext from '../../../helptext/vm/devices/device-add-edit';
 import { filter, map } from 'rxjs/operators';
 import { EntityUtils } from 'app/pages/common/entity/utils';
+import { forbiddenValues } from 'app/pages/common/entity/entity-form/validators/forbidden-values-validation';
 import globalHelptext from './../../../helptext/global-helptext';
 
 @Component({
@@ -33,6 +35,11 @@ export class VMWizardComponent {
   protected dialogRef: any;
   objectKeys = Object.keys;
   summary_title = "VM Summary";
+  public namesInUse = [];
+  public statSize: any;
+  public vcpus: number = 1;
+  public cores: number = 1;
+  public threads: number = 1;
 
   entityWizard: any;
   public res;
@@ -54,11 +61,8 @@ export class VMWizardComponent {
         name : 'name',
         placeholder : helptext.name_placeholder,
         tooltip : helptext.name_tooltip,
-        validation : [Validators.required,Validators.pattern('^[a-zA-Z0-9\_]*$')],
-        required: true,
-        blurStatus: true,
-        blurEvent: this.blurEvent,
-        parent: this
+        validation : [Validators.required,Validators.pattern('^[a-zA-Z0-9\_]*$'), forbiddenValues(this.namesInUse)],
+        required: true
       },
       { type: 'input',
         name : 'description',
@@ -81,6 +85,14 @@ export class VMWizardComponent {
         tooltip : helptext.bootloader_tooltip,
         options: []
       },
+      { type: 'input',
+        name : 'shutdown_timeout',
+        inputType: 'number',
+        value: 90,
+        placeholder : helptext.shutdown_timeout.placeholder,
+        tooltip : helptext.shutdown_timeout.tooltip,
+        validation: helptext.shutdown_timeout.validation
+      },
       { type: 'checkbox',
         name : 'autostart',
         placeholder : helptext.autostart_placeholder,
@@ -88,11 +100,11 @@ export class VMWizardComponent {
         value: true
       },
       { type: 'checkbox',
-      name : 'enable_vnc',
-      placeholder : helptext.enable_vnc_placeholder,
-      tooltip : helptext.enable_vnc_tooltip,
-      value: true,
-      isHidden: false
+        name : 'enable_vnc',
+        placeholder : helptext.enable_vnc_placeholder,
+        tooltip : helptext.enable_vnc_tooltip,
+        value: true,
+        isHidden: false
       },
       {
         name : 'wait',
@@ -120,8 +132,29 @@ export class VMWizardComponent {
           placeholder: helptext.vcpus_placeholder,
           inputType: 'number',
           min: 1,
-          validation : [ Validators.required, Validators.min(1), Validators.max(16) ],
+          validation : [ this.cpuValidator('threads'), Validators.required, Validators.min(1), Validators.max(16) ],
           tooltip: helptext.vcpus_tooltip,
+        },
+        {
+          type: 'input',
+          name: 'cores',
+          placeholder: helptext.cores.placeholder,
+          inputType: 'number',
+          validation : [ this.cpuValidator('threads'), Validators.required, Validators.min(1), Validators.max(16) ],
+          tooltip: helptext.cores.tooltip
+        },
+        {
+          type: 'input',
+          name: 'threads',
+          placeholder: helptext.threads.placeholder,
+          inputType: 'number',
+          validation : [ 
+            this.cpuValidator('threads'),
+            Validators.required, 
+            Validators.min(1),
+            Validators.max(16),
+          ],
+          tooltip: helptext.threads.tooltip,
         },
         {
           type: 'input',
@@ -130,6 +163,7 @@ export class VMWizardComponent {
           inputType: 'text',
           validation : [
             ...helptext.memory_validation,
+            this.memoryValidator('memory'),
             (control: FormControl): ValidationErrors => {
               const config = this.wizardConfig.find(c => c.label === helptext.vcpus_label).fieldConfig.find(c => c.name === 'memory');
               const errors = control.value && isNaN(this.storageService.convertHumanStringToNum(control.value))
@@ -189,18 +223,6 @@ export class VMWizardComponent {
           value: helptext.hdd_type_value
         },
         {
-          type: 'input',
-          name: 'volsize',
-          placeholder : helptext.volsize_placeholder,
-          tooltip: helptext.volsize_tooltip,
-          isHidden: false,
-          blurStatus: true,
-          blurEvent: this.blurEvent3,
-          parent: this,
-          validation: helptext.volsize_validation,
-          required: true
-        },
-        {
           type: 'select',
           name: 'datastore',
           tooltip: helptext.datastore_tooltip,
@@ -210,6 +232,47 @@ export class VMWizardComponent {
           options: [],
           isHidden: false,
           validation: [Validators.required],
+          required: true
+        },
+        {
+          type: 'input',
+          name: 'volsize',
+          inputType: 'text',
+          placeholder : helptext.volsize_placeholder,
+          tooltip: helptext.volsize_tooltip,
+          isHidden: false,
+          blurStatus: true,
+          blurEvent: this.blurEvent3,
+          parent: this,
+          validation : [
+            ...helptext.volsize_validation,
+            this.volSizeValidator('volsize'),
+            (control: FormControl): ValidationErrors => {
+              const config = this.wizardConfig.find(c => c.label === helptext.disks_label).fieldConfig.find(c => c.name === 'volsize');
+              const errors = control.value && isNaN(this.storageService.convertHumanStringToNum(control.value, false, 'mgtp'))
+                ? { invalid_byte_string: true }
+                : null
+
+              if (errors) {
+                config.hasErrors = true;
+                config.errors = globalHelptext.human_readable.input_error;
+              } else {
+                config.hasErrors = false;
+                config.errors = '';
+              }
+
+              return errors;
+            }
+          ],
+          relation : [
+            {
+              action : 'DISABLE',
+              when : [ {
+                name : 'datastore',
+                value : undefined,
+              } ]
+            },
+          ],
           required: true
         },
         {
@@ -304,14 +367,19 @@ export class VMWizardComponent {
     public vmService: VmService, public networkService: NetworkService,
     protected loader: AppLoaderService, protected dialog: MatDialog,
     public messageService: MessageService,private router: Router,
-    private dialogService: DialogService, private storageService: StorageService) {
+    private dialogService: DialogService, private storageService: StorageService,
+    protected prefService: PreferencesService) {
 
   }
 
   preInit(entityWizard: EntityWizardComponent){
     this.entityWizard = entityWizard;
   }
+  
   afterInit(entityWizard: EntityWizardComponent) {
+    this.ws.call('vm.query').subscribe((res) => {
+      res.forEach(i => this.namesInUse.push(i.name));
+    })
 
     this.ws.call('vm.device.vnc_bind_choices').subscribe((res) => {
         if(res && Object.keys(res).length > 0) {
@@ -346,6 +414,7 @@ export class VMWizardComponent {
       });
     });
 
+
     ( < FormGroup > entityWizard.formArray.get([0]).get('bootloader')).valueChanges.subscribe((bootloader) => {
       if(bootloader === "UEFI_CSM"){
         _.find(this.wizardConfig[0].fieldConfig, {name : 'enable_vnc'})['isHidden'] = true;
@@ -379,33 +448,42 @@ export class VMWizardComponent {
         this.summary[T('Name')] = name;
       });
       ( < FormGroup > entityWizard.formArray.get([1])).get('vcpus').valueChanges.subscribe((vcpus) => {
+        this.vcpus = vcpus;
         this.summary[T('Number of CPUs')] = vcpus;
+      });
+      ( < FormGroup > entityWizard.formArray.get([1])).get('cores').valueChanges.subscribe((cores) => {
+        this.cores = cores;
+        this.summary[T('Number of Cores')] = cores;
+      });
+      ( < FormGroup > entityWizard.formArray.get([1])).get('threads').valueChanges.subscribe((threads) => {
+        this.threads = threads;
+        this.summary[T('Number of Threads')] = threads;
       });
       ( < FormGroup > entityWizard.formArray.get([1])).get('memory').valueChanges.subscribe((memory) => {
         this.summary[T('Memory')] =
           isNaN(this.storageService.convertHumanStringToNum(memory))
-            ? '0 MB'
-            : Math.ceil(this.storageService.convertHumanStringToNum(memory) / 1024**2) + ' MiB' ;
+            ? '0 MiB'
+            : this.storageService.humanReadable;
       });
 
       ( < FormGroup > entityWizard.formArray.get([2])).get('volsize').valueChanges.subscribe((volsize) => {
-        this.summary[T('Hard Disk Size')] = volsize + ' GiB';
+        this.summary[T('Disk Size')] = volsize ;
       });
 
       ( < FormGroup > entityWizard.formArray.get([2])).get('disk_radio').valueChanges.subscribe((disk_radio)=>{
-        if(this.summary[T('Hard Disk')] || this.summary[T('Hard Disk Size')]){
-          delete this.summary[T('Hard Disk')];
-          delete this.summary[T('Hard Disk Size')];
+        if(this.summary[T('Disk')] || this.summary[T('Disk Size')]){
+          delete this.summary[T('Disk')];
+          delete this.summary[T('Disk Size')];
         }
         if(disk_radio) {
-          this.summary[T('Hard Disk Size')] = ( < FormGroup > entityWizard.formArray.get([2])).controls['volsize'].value + ' Gib';
+          this.summary[T('Disk Size')] = ( < FormGroup > entityWizard.formArray.get([2])).controls['volsize'].value;
             ( < FormGroup > entityWizard.formArray.get([2])).get('volsize').valueChanges.subscribe((volsize) => {
-              this.summary[T('Hard Disk Size')] = volsize + ' GiB';
+              this.summary[T('Disk Size')] = volsize;
             });
         } else {
-          this.summary[T('Hard Disk')] = ( < FormGroup > entityWizard.formArray.get([2])).controls['hdd_path'].value;
+          this.summary[T('Disk')] = ( < FormGroup > entityWizard.formArray.get([2])).controls['hdd_path'].value;
             ( < FormGroup > entityWizard.formArray.get([2])).get('hdd_path').valueChanges.subscribe((existing_hdd_path)=>{
-              this.summary[T('Hard Disk')] = existing_hdd_path;
+              this.summary[T('Disk')] = existing_hdd_path;
             })
         }
       });
@@ -414,8 +492,9 @@ export class VMWizardComponent {
         if(datastore !== undefined && datastore !== "" && datastore !== "/mnt"){
           _.find(this.wizardConfig[2].fieldConfig, {'name' : 'datastore'}).hasErrors = false;
           _.find(this.wizardConfig[2].fieldConfig, {'name' : 'datastore'}).errors = null;
-        const volsize = ( < FormGroup > entityWizard.formArray.get([2])).controls['volsize'].value * 1073741824;
+        const volsize = this.storageService.convertHumanStringToNum(( < FormGroup > entityWizard.formArray.get([2])).controls['volsize'].value.toString());
         this.ws.call('filesystem.statfs',[`/mnt/${datastore}`]).subscribe((stat)=> {
+          this.statSize = stat;
           _.find(this.wizardConfig[2].fieldConfig, {'name' : 'volsize'})['hasErrors'] = false;
           _.find(this.wizardConfig[2].fieldConfig, {'name' : 'volsize'})['errors'] = '';
          if (stat.free_bytes < volsize ) {
@@ -423,27 +502,33 @@ export class VMWizardComponent {
          } else if (stat.free_bytes > 40*1073741824) {
               const vm_os = ( < FormGroup > entityWizard.formArray.get([0]).get('os')).value;
               if (vm_os === "Windows"){
-                  ( < FormGroup > entityWizard.formArray.get([2])).controls['volsize'].setValue(volsize/1073741824);
+                  ( < FormGroup > entityWizard.formArray.get([2])).controls['volsize'].setValue(this.storageService.convertBytestoHumanReadable(volsize, 0));
               } else {
-                  ( < FormGroup > entityWizard.formArray.get([2])).controls['volsize'].setValue(volsize/1073741824);
+                  ( < FormGroup > entityWizard.formArray.get([2])).controls['volsize'].setValue(this.storageService.convertBytestoHumanReadable(volsize, 0)); 
               };
         } else if (stat.free_bytes > 10*1073741824) {
               const vm_os = ( < FormGroup > entityWizard.formArray.get([0]).get('os')).value;
-              ( < FormGroup > entityWizard.formArray.get([2])).controls['volsize'].setValue(volsize/1073741824);
+              ( < FormGroup > entityWizard.formArray.get([2])).controls['volsize'].setValue((this.storageService.convertBytestoHumanReadable(volsize, 0))); 
           };
         });
       } else {
         if(datastore === '/mnt'){
           ( < FormGroup > entityWizard.formArray.get([2])).controls['datastore'].setValue(null);
           _.find(this.wizardConfig[2].fieldConfig, {'name' : 'datastore'}).hasErrors = true;
-          _.find(this.wizardConfig[2].fieldConfig, {'name' : 'datastore'}).errors = `Virtual machines cannot be stored in an unmounted mountpoint: ${datastore}`;
+          _.find(this.wizardConfig[2].fieldConfig, {'name' : 'datastore'}).errors = T(`Virtual machines cannot be stored in an unmounted mountpoint: ${datastore}`);
         }
         if(datastore === ''){
           ( < FormGroup > entityWizard.formArray.get([2])).controls['datastore'].setValue(null);
           _.find(this.wizardConfig[2].fieldConfig, {'name' : 'datastore'}).hasErrors = true;
-          _.find(this.wizardConfig[2].fieldConfig, {'name' : 'datastore'}).errors = `Please select a valid path`;
+          _.find(this.wizardConfig[2].fieldConfig, {'name' : 'datastore'}).errors = T(`Please select a valid path`);
         }
       }
+      });
+      ( < FormGroup > entityWizard.formArray.get([3]).get('NIC_type')).valueChanges.subscribe((res) => {
+        this.prefService.preferences.nicType = res;
+      });
+      ( < FormGroup > entityWizard.formArray.get([3]).get('nic_attach')).valueChanges.subscribe((res) => {
+        this.prefService.preferences.nicAttach = res;
       });
       ( < FormGroup > entityWizard.formArray.get([4]).get('iso_path')).valueChanges.subscribe((iso_path) => {
         if (iso_path && iso_path !== undefined){
@@ -456,35 +541,21 @@ export class VMWizardComponent {
       this.messageService.messageSourceHasNewMessage$.subscribe((message)=>{
         ( < FormGroup > entityWizard.formArray.get([4]).get('iso_path')).setValue(message);
       })
-      this.ws.call('vm.get_available_memory').subscribe((available_memory)=>{
-        if (available_memory > 512 * 1048576) {
-          this.res = res;
-          if (res === 'Windows') {
-            ( < FormGroup > entityWizard.formArray.get([1])).controls['vcpus'].setValue(2);
-            ( < FormGroup > entityWizard.formArray.get([1])).controls['memory'].setValue('4096MB');
-            ( < FormGroup > entityWizard.formArray.get([2])).controls['volsize'].setValue(40);
-          }
-          else {
-            ( < FormGroup > entityWizard.formArray.get([1])).controls['vcpus'].setValue(1);
-            ( < FormGroup > entityWizard.formArray.get([1])).controls['memory'].setValue('512MB');
-            ( < FormGroup > entityWizard.formArray.get([2])).controls['volsize'].setValue(10);
-          }
-
-        } else {
-          if (res === 'Windows') {
-            ( < FormGroup > entityWizard.formArray.get([1])).controls['vcpus'].setValue(2);
-            ( < FormGroup > entityWizard.formArray.get([1])).controls['memory'].setValue(0);
-            ( < FormGroup > entityWizard.formArray.get([2])).controls['volsize'].setValue(40);
-          }
-          else {
-            ( < FormGroup > entityWizard.formArray.get([1])).controls['vcpus'].setValue(1);
-            ( < FormGroup > entityWizard.formArray.get([1])).controls['memory'].setValue(0);
-            ( < FormGroup > entityWizard.formArray.get([2])).controls['volsize'].setValue(10);
-          }
-
-        }
-      })
-
+      this.res = res;
+      if (res === 'Windows') {
+        ( < FormGroup > entityWizard.formArray.get([1])).controls['vcpus'].setValue(2);
+        ( < FormGroup > entityWizard.formArray.get([1])).controls['cores'].setValue(1);
+        ( < FormGroup > entityWizard.formArray.get([1])).controls['threads'].setValue(1);
+        ( < FormGroup > entityWizard.formArray.get([1])).controls['memory'].setValue('4 GiB');
+        ( < FormGroup > entityWizard.formArray.get([2])).controls['volsize'].setValue('40 GiB');
+      }
+      else {
+        ( < FormGroup > entityWizard.formArray.get([1])).controls['vcpus'].setValue(1);
+        ( < FormGroup > entityWizard.formArray.get([1])).controls['cores'].setValue(1);
+        ( < FormGroup > entityWizard.formArray.get([1])).controls['threads'].setValue(1);
+        ( < FormGroup > entityWizard.formArray.get([1])).controls['memory'].setValue('512 MiB');
+        ( < FormGroup > entityWizard.formArray.get([2])).controls['volsize'].setValue('10 GiB');
+      }
     });
     ( < FormGroup > entityWizard.formArray.get([2]).get('disk_radio')).valueChanges.subscribe((res) => {
       if (res){
@@ -524,94 +595,148 @@ export class VMWizardComponent {
         label: nicId,
         value: nicId
       }));
-      ( < FormGroup > entityWizard.formArray.get([3])).controls['nic_attach'].setValue(
-        this.nic_attach.options[0].value
-      )
+      let tempNICAttach = ( < FormGroup > entityWizard.formArray.get([3])).controls['nic_attach'];
+      setTimeout(() => {
+        if (!this.prefService.preferences.nicAttach) {
+          tempNICAttach.setValue(this.nic_attach.options[0].value)
+        } else {
+          tempNICAttach.setValue(this.prefService.preferences.nicAttach);
+        }
+      },2000)
+
+
       this.ws.call('vm.random_mac').subscribe((mac_res)=>{
         ( < FormGroup > entityWizard.formArray.get([3])).controls['NIC_mac'].setValue(mac_res);
       });
 
     });
-    this.ws.call('notifier.choices', [ 'VM_NICTYPES' ]).subscribe((res) => {
-          this.nicType = _.find(this.wizardConfig[3].fieldConfig, {name : "NIC_type"});
-          res.forEach((item) => {
-            this.nicType.options.push({label : item[1], value : item[0]});
-          });
-        ( < FormGroup > entityWizard.formArray.get([3])).controls['NIC_type'].setValue(
-          this.nicType.options[0].value
-        )
+        this.nicType = _.find(this.wizardConfig[3].fieldConfig, {name : "NIC_type"});
+        this.vmService.getNICTypes().forEach((item) => {
+          this.nicType.options.push({label : item[1], value : item[0]});
         });
+        
+        let tempNICType = ( < FormGroup > entityWizard.formArray.get([3])).controls['NIC_type']
+        setTimeout(() => {
+          if (!this.prefService.preferences.nicType) {
+            tempNICType.setValue(this.nicType.options[0].value);
+          } else {
+            tempNICType.setValue(this.prefService.preferences.nicType)
+          }
+        }, 2000)
 
-      this.ws.call('notifier.choices', [ 'VM_BOOTLOADER' ]).subscribe((res) => {
-        this.bootloader = _.find(this.wizardConfig[0].fieldConfig, {name : 'bootloader'});
-        res.forEach((item) => {
-          this.bootloader.options.push({label : item[1], value : item[0]})
-        });
+
+      this.bootloader = _.find(this.wizardConfig[0].fieldConfig, {name : 'bootloader'});
+      this.vmService.getBootloaderOptions().forEach((item) => {
+        this.bootloader.options.push({label : item[1], value : item[0]})
+      });
+
       ( < FormGroup > entityWizard.formArray.get([0])).controls['bootloader'].setValue(
         this.bootloader.options[0].value
       )
-      });
   }
   getRndInteger(min, max) {
     return Math.floor(Math.random() * (max - min + 1) ) + min;
 }
-blurEvent(parent){
-  const vm_name = parent.entityWizard.formGroup.value.formArray[0].name
-  parent.ws.call('vm.query', [[["name","=",vm_name]]]).subscribe((vm_wizard_res)=>{
-    if(vm_wizard_res.length > 0){
-      _.find(parent.wizardConfig[0].fieldConfig, {'name' : 'name'})['hasErrors'] = true;
-      _.find(parent.wizardConfig[0].fieldConfig, {'name' : 'name'})['errors'] = `Virtual machine ${vm_wizard_res[0].name} already exists.`;
-      parent.entityWizard.formArray.get([0]).get('name').setValue("");
+
+memoryValidator(name: string) {
+  const self = this;
+  return function validMem(control: FormControl) {
+    const config = self.wizardConfig[1].fieldConfig.find(c => c.name === name);
+
+    const errors = self.storageService.convertHumanStringToNum(control.value) < 268435456
+    ? { validMem : true }
+    : null;
+
+    if (errors) {
+      config.hasErrors = true;
+      config.warnings = helptext.memory_size_err;
     } else {
-      _.find(parent.wizardConfig[0].fieldConfig, {'name' : 'name'})['hasErrors'] = false;
-      _.find(parent.wizardConfig[0].fieldConfig, {'name' : 'name'})['errors'] = '';
+      config.hasErrors = false;
+      config.warnings = '';
     }
-  })
-}
+
+    return errors;
+  }
+};
+
+cpuValidator(name: string) { 
+  const self = this;
+  return function validCPU(control: FormControl) {
+    const config = self.wizardConfig[1].fieldConfig.find(c => c.name === name);
+      setTimeout(() => {
+        const errors = self.vcpus * self.cores * self.threads > 16
+        ? { validCPU : true }
+        : null;
+
+        if (errors) {
+          config.hasErrors = true;
+          config.warnings = T(`The product of vCPUs, cores and threads must not exceed 16.`);
+        } else {
+          config.hasErrors = false;
+          config.warnings = '';
+        }
+        return errors;
+      }, 100)
+  }
+};
+
+volSizeValidator(name: string) {
+  const self = this;
+  return function validStorage(control: FormControl) {
+    const config = self.wizardConfig[2].fieldConfig.find(c => c.name === name);
+
+    if (control.value && self.statSize) {
+      const requestedSize = self.storageService.convertHumanStringToNum(control.value);
+      const errors = self.statSize.free_bytes < requestedSize
+      ? { validStorage : true }
+      : null;
+    
+
+
+    if (errors) {
+      config.hasErrors = true;
+      config.warnings = T(`Cannot allocate ${self.storageService.humanReadable} to storage for this virtual machine.`);
+    } else {
+      config.hasErrors = false;
+      config.warnings = '';
+    }
+
+    return errors;
+  }
+  }
+};
 
 blurEvent2(parent){
-  const vm_memory_requested = parent.entityWizard.formGroup.value.formArray[1].memory
-  const vm_name = parent.entityWizard.formGroup.value.formArray[0].name
-  parent.ws.call('vm.get_available_memory').subscribe((vm_memory_available)=>{
-    if( vm_memory_requested *1048576> vm_memory_available){
-      parent.entityWizard.formArray.get([1]).get('memory').setValue('');
-      _.find(parent.wizardConfig[1].fieldConfig, {'name' : 'memory'})['hasErrors'] = true;
-      _.find(parent.wizardConfig[1].fieldConfig, {'name' : 'memory'})['errors'] = `Cannot allocate ${vm_memory_requested} Mib to virtual machine: ${vm_name}.`;
-      
-
-    } else{
-      _.find(parent.wizardConfig[1].fieldConfig, {'name' : 'memory'})['hasErrors'] = false;
-      _.find(parent.wizardConfig[1].fieldConfig, {'name' : 'memory'})['errors'] = '';
-    }
-  })
-}
-blurEvent3(parent){
-  if(parent.entityWizard.formArray.controls[2].value.volsize > 0 ) {
-    const volsize = parent.entityWizard.formArray.controls[2].value.volsize * 1073741824;
-    const datastore = parent.entityWizard.formArray.controls[2].value.datastore;
-    const vm_name = parent.entityWizard.formGroup.value.formArray[0].name;
-    if(datastore !== undefined && datastore !== "" && datastore !== "/mnt"){
-    parent.ws.call('filesystem.statfs', [`/mnt/${datastore}`]).subscribe((stat)=> {
-      if (stat.free_bytes < volsize ) {
-        parent.entityWizard.formArray.get([2]).get('volsize').setValue(0);
-        _.find(parent.wizardConfig[2].fieldConfig, {'name' : 'volsize'})['hasErrors'] = true;
-        _.find(parent.wizardConfig[2].fieldConfig, {'name' : 'volsize'})['errors'] = `Cannot allocate ${volsize / (1073741824)} Gib to for storage virtual machine: ${vm_name}.`;
-       } else {
-        _.find(parent.wizardConfig[2].fieldConfig, {'name' : 'volsize'})['hasErrors'] = false;
-        _.find(parent.wizardConfig[2].fieldConfig, {'name' : 'volsize'})['errors'] = '';
-        const vm_os = parent.entityWizard.formArray.controls[1].os;
-        if (vm_os === "Windows"){
-          parent.entityWizard.formArray.get([2]).get('volsize').setValue(volsize/1073741824);
-        } else {
-          parent.entityWizard.formArray.get([2]).get('volsize').setValue(volsize/1073741824);
-        };
-       }
-    })
+  const enteredVal = parent.entityWizard.formGroup.value.formArray[1].memory;
+  const vm_memory_requested = parent.storageService.convertHumanStringToNum(enteredVal);
+  if (isNaN(vm_memory_requested)) {
+    console.error(vm_memory_requested) // leaves form in previous error state
+  } else if (enteredVal.replace(/\s/g, '').match(/[^0-9]/g) === null) {
+    parent.entityWizard.formArray.get([1]).get('memory')
+      .setValue(parent.storageService.convertBytestoHumanReadable(enteredVal.replace(/\s/g, ''), 0));
+  } else {
+    parent.entityWizard.formArray.get([1]).get('memory').setValue(parent.storageService.humanReadable);
+    _.find(parent.wizardConfig[1].fieldConfig, {'name' : 'memory'})['hasErrors'] = false;
+    _.find(parent.wizardConfig[1].fieldConfig, {'name' : 'memory'})['errors'] = '';
   }
 }
+
+blurEvent3(parent){
+  const enteredVal = parent.entityWizard.formArray.controls[2].value.volsize;
+  const volsize = parent.storageService.convertHumanStringToNum(enteredVal, false, 'mgtp');
+  if (volsize >= 1048576 ) {
+    parent.entityWizard.formArray.get([2]).get('volsize').setValue(parent.storageService.humanReadable);
+    _.find(parent.wizardConfig[2].fieldConfig, {'name' : 'volsize'})['hasErrors'] = false;
+    _.find(parent.wizardConfig[2].fieldConfig, {'name' : 'volsize'})['errors'] = '';
+  } else if (isNaN(volsize)) {
+    console.error(volsize) // leaves form in previous error state
+  } else {
+    parent.entityWizard.formArray.get([2]).get('volsize').setValue('1 MiB');
+  }
 }
 
 async customSubmit(value) {
+    this.prefService.savePreferences();
     let hdd;
     const vm_payload = {}
     const zvol_payload = {}
@@ -624,27 +749,30 @@ async customSubmit(value) {
     // zvol_payload only applies if the user is creating one
     zvol_payload['create_zvol'] = true
     zvol_payload["zvol_name"] = hdd
-    zvol_payload["zvol_volsize"] = value.volsize * 1024 * 1000 * 1000;
+    zvol_payload["zvol_volsize"] = this.storageService.convertHumanStringToNum(value.volsize);
 
     vm_payload["memory"]= value.memory;
     vm_payload["name"] = value.name;
     vm_payload["description"] = value.description;
     vm_payload["time"]= value.time;
     vm_payload["vcpus"] = value.vcpus;
+    vm_payload["cores"] = value.cores;
+    vm_payload["threads"] = value.threads;
     vm_payload["memory"] = Math.ceil(this.storageService.convertHumanStringToNum(value.memory) / 1024**2); // bytes -> mb
     vm_payload["bootloader"] = value.bootloader;
+    vm_payload["shutdown_timeout"]= value.shutdown_timeout;
     vm_payload["autoloader"] = value.autoloader;
     vm_payload["autostart"] = value.autostart;
     if ( value.iso_path && value.iso_path !== undefined) {
       vm_payload["devices"] = [
         {"dtype": "NIC", "attributes": {"type": value.NIC_type, "mac": value.NIC_mac, "nic_attach":value.nic_attach}},
-        {"dtype": "DISK", "attributes": {"path": hdd, "type": value.hdd_type, "sectorsize": 0}},
+        {"dtype": "DISK", "attributes": {"path": hdd, "type": value.hdd_type, 'physical_sectorsize': null, 'logical_sectorsize': null}},
         {"dtype": "CDROM", "attributes": {"path": value.iso_path}},
       ]
     } else {
       vm_payload["devices"] = [
         {"dtype": "NIC", "attributes": {"type": value.NIC_type, "mac": value.NIC_mac, "nic_attach":value.nic_attach}},
-        {"dtype": "DISK", "attributes": {"path": hdd, "type": value.hdd_type, "sectorsize": 0}},
+        {"dtype": "DISK", "attributes": {"path": hdd, "type": value.hdd_type, 'physical_sectorsize': null, 'logical_sectorsize': null}},
       ]
     }
     
@@ -652,7 +780,7 @@ async customSubmit(value) {
       vm_payload["devices"].push({
           "dtype": "VNC", "attributes": {
             "wait": value.wait,
-            "vnc_port": String(this.getRndInteger(5553,6553)),
+            "vnc_port": String(this.getRndInteger(5900,65535)),
             "vnc_resolution": "1024x768",
             "vnc_bind": value.vnc_bind,
             "vnc_password": "",

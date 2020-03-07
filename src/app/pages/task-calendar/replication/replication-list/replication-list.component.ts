@@ -1,14 +1,19 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
+import { Validators } from '@angular/forms';
+
 import { EntityUtils } from 'app/pages/common/entity/utils';
 import { T } from 'app/translate-marker';
-import * as moment from 'moment';
-import { DialogService, JobService, SnackbarService, WebSocketService } from '../../../../services';
+import { DialogService, JobService, WebSocketService, StorageService } from '../../../../services';
+import { DialogFormConfiguration } from '../../../common/entity/entity-dialog/dialog-form-configuration.interface';
+import globalHelptext from '../../../../helptext/global-helptext';
+import helptext from '../../../../helptext/task-calendar/replication/replication';
 
 @Component({
     selector: 'app-replication-list',
     template: `<entity-table [title]='title' [conf]='this'></entity-table>`,
-    providers: [SnackbarService, JobService]
+    providers: [JobService, StorageService]
 })
 export class ReplicationListComponent {
 
@@ -30,7 +35,7 @@ export class ReplicationListComponent {
         { name: 'Target Dataset', prop: 'target_dataset', hidden: true},
         { name: 'Recursive', prop: 'recursive', hidden: true},
         { name: 'Auto', prop: 'auto', hidden: true},
-        { name: 'Enabled', prop: 'enabled', hidden: true },
+        { name: 'Enabled', prop: 'enabled', selectable: true },
         { name: 'State', prop: 'task_state', state: 'state' },
         { name: 'Last Snapshot', prop: 'task_last_snapshot' }
     ];
@@ -48,8 +53,9 @@ export class ReplicationListComponent {
         private router: Router,
         private ws: WebSocketService,
         private dialog: DialogService,
-        private snackbarService: SnackbarService,
-        protected job: JobService) { }
+        protected job: JobService,
+        protected storage: StorageService,
+        protected http: HttpClient) { }
 
     afterInit(entityList: any) {
         this.entityList = entityList;
@@ -75,8 +81,8 @@ export class ReplicationListComponent {
                     if (res) {
                         row.state = 'RUNNING';
                         this.ws.call('replication.run', [row.id]).subscribe(
-                            (res) => {
-                                this.snackbarService.open(T('Replication <i>') + row.name + T('</i> has started.'), T('close'), { duration: 5000 });
+                            (ws_res) => {
+                                this.dialog.Info(T('Task started'), T('Replication <i>') + row.name + T('</i> has started.'), '500px', 'info', true);
                             },
                             (err) => {
                                 new EntityUtils().handleWSError(this.entityList, err);
@@ -84,7 +90,55 @@ export class ReplicationListComponent {
                     }
                 });
             },
-        }, {
+        },  {
+            actionName: parentrow.description,
+            id: 'restore',
+            label: T('Restore'),
+            icon: 'restore',
+            onClick: (row) => {
+              const parent = this;
+              const conf: DialogFormConfiguration = {
+                title: helptext.replication_restore_dialog.title,
+                fieldConfig: [
+                  {
+                    type: 'input',
+                    name: 'name',
+                    placeholder: helptext.name_placeholder,
+                    tooltip: helptext.name_tooltip,
+                    validation: [Validators.required],
+                    required: true,
+                  },
+                  {
+                    type: 'explorer',
+                    explorerType: 'dataset',
+                    initial: '',
+                    name: 'target_dataset',
+                    placeholder: helptext.target_dataset_placeholder,
+                    tooltip: helptext.target_dataset_placeholder,
+                    validation: [Validators.required],
+                    required: true,
+                  }
+                ],
+                saveButtonText: helptext.replication_restore_dialog.saveButton,
+                customSubmit: function (entityDialog) {
+                  parent.entityList.loader.open();
+                  parent.ws.call('replication.restore', [row.id, entityDialog.formValue]).subscribe(
+                    (res) => {
+                      entityDialog.dialogRef.close(true);
+                      parent.entityList.loaderOpen = true;
+                      parent.entityList.needRefreshTable = true;
+                      parent.entityList.getData();
+                    },
+                    (err) => {
+                      parent.entityList.loader.close(true);
+                      new EntityUtils().handleWSError(entityDialog, err, parent.dialog);
+                    }
+                  )
+                }
+              }
+              this.dialog.dialogFormWide(conf);
+            }
+          }, {
             id: parentrow.name,
             icon: 'edit',
             name: "edit",
@@ -105,15 +159,62 @@ export class ReplicationListComponent {
     }
 
     stateButton(row) {
-        if (row.state.error) {
-            this.dialog.confirm(row.state.state,row.state.error,true, T('VIEW LOGS')).subscribe(
-                (res) => {
-                    if (res) {
-                        this.job.showLogs(row.state.job.id);
-                    }
-                })
-        } else if (row.state.job) {
-            this.job.showLogs(row.state.job.id);
+        if (row.state.state === 'RUNNING') {
+            this.entityList.runningStateButton(row.job.id);
+        } else if (row.state.state === 'HOLD') {
+            this.dialog.Info(T('Task is on hold'), row.state.reason, '500px', 'info', true);
+        } else {
+            const error = row.state.state === 'ERROR' ? row.state.error : null;
+            const log = (row.job && row.job.logs_excerpt) ? row.job.logs_excerpt : null;
+            if (error === null && log === null) {
+                this.dialog.Info(globalHelptext.noLogDilaog.title, globalHelptext.noLogDilaog.message);
+            }
+
+            const dialog_title = T('Task State');
+            const dialog_content = (error ? `<h5>${T('Error')}</h5> <pre>${error}</pre>` : '') +
+            (log ? `<h5>${T('Logs')}</h5> <pre>${log}</pre>` : '');
+
+            if (log) {
+                this.dialog.confirm(dialog_title, dialog_content, true, T('Download Logs'),
+                false, '', '', '', '', false, T('Cancel'), true).subscribe(
+                (dialog_res) => {
+                  if (dialog_res) {
+                    this.ws.call('core.download', ['filesystem.get', [row.job.logs_path], row.job.id + '.log']).subscribe(
+                      (snack_res) => {
+                        const url = snack_res[1];
+                        const mimetype = 'text/plain';
+                        let failed = false;
+                        this.storage.streamDownloadFile(this.http, url, row.job.id + '.log', mimetype).subscribe(file => {
+                          this.storage.downloadBlob(file, row.job.id + '.log');
+                        }, err => {
+                          failed = true;
+                          new EntityUtils().handleWSError(this, err);
+                        });
+                      },
+                      (snack_res) => {
+                        new EntityUtils().handleWSError(this, snack_res);
+                      }
+                    );
+                  }
+                });
+            } else {
+                this.dialog.errorReport(row.state.state, row.state.error);
+            }
         }
+    }
+
+    onCheckboxChange(row) {
+      row.enabled = !row.enabled;
+      this.ws.call('replication.update', [row.id, {'enabled': row.enabled}] )
+      .subscribe(
+        (res) => {
+          if (!res) {
+            row.enabled = !row.enabled;
+          }
+        },
+        (err) => {
+          row.enabled = !row.enabled;
+          new EntityUtils().handleWSError(this, err, this.dialog);
+        });
     }
 }

@@ -1,5 +1,5 @@
 import { Component } from '@angular/core'
-import { MatSnackBar, MatDialog } from '@angular/material';
+import { MatDialog } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 
 import * as myIP from 'what-is-my-ip-address';
@@ -11,6 +11,8 @@ import { T } from '../../translate-marker';
 import * as _ from 'lodash';
 import { DialogFormConfiguration } from '../common/entity/entity-dialog/dialog-form-configuration.interface';
 import { EntityJobComponent } from '../common/entity/entity-job/entity-job.component';
+import helptext from '../../helptext/plugins/plugins';
+import jailHelptext from '../../helptext/jails/jails-list';
 
 @Component({
   selector: 'app-plugins-ui',
@@ -20,15 +22,17 @@ export class PluginsComponent {
   public title = "Plugins";
   protected globalConfig = {
     id: "config",
-    tooltip: T("Config Pool for Jail Manager"),
+    tooltip: jailHelptext.globalConfig.tooltip,
     onClick: () => {
       this.prerequisite().then((res)=>{
-        this.activatePool();
+        if (this.availablePools !== undefined) {
+          this.activatePool();
+        }
       })
     }
   };
   protected queryCall = 'plugin.query';
-  protected wsDelete = 'jail.do_delete';
+  protected wsDelete = 'jail.delete';
   protected wsMultiDelete = 'core.bulk';
   protected entityList: any;
 
@@ -36,14 +40,15 @@ export class PluginsComponent {
   public activatedPool: any;
 
   public columns: Array<any> = [
-    { name: T('Jail'), prop: 'name', always_display: true },
+    { name: T('Jail'), prop: 'name', always_display: true, icon: 'icon'},
     { name: T('Status'), prop: 'state' },
-    { name: T('IPv4 Address'), prop: 'ip4' },
-    { name: T('IPv6 Address'), prop: 'ip6' },
+    { name: T('Admin Portals'), prop: 'admin_portals'},
+    { name: T('IPv4 Address'), prop: 'ip4', hidden: true },
+    { name: T('IPv6 Address'), prop: 'ip6', hidden: true },
     { name: T('Version'), prop: 'version', hidden: true },
     { name: T('Plugin'), prop: 'plugin', hidden: true },
     { name: T('Release'), prop: 'release', hidden: true },
-    { name: T('Boot'), prop: 'boot', hidden: true },
+    { name: T('Boot'), prop: 'boot', selectable: true},
     { name: T('Collection'), prop: 'plugin_repository', hidden: true },
   ];
   public config: any = {
@@ -66,6 +71,7 @@ export class PluginsComponent {
   };
 
   protected cardHeaderComponent = AvailablePluginsComponent;
+  protected availablePlugins;
 
   public multiActions: Array<any> = [
     {
@@ -129,8 +135,7 @@ export class PluginsComponent {
       ttpos: "above",
       onClick: (selected) => {
         const selectedJails = this.getSelectedNames(selected);
-
-        this.snackBar.open(T('Updating selected plugins.'), 'close', { duration: 5000 });
+        this.dialogService.Info(helptext.multi_update_dialog.title, helptext.multi_update_dialog.content);
         this.entityList.busy =
           this.ws.job('core.bulk', ["jail.update_to_latest_patch", selectedJails]).subscribe(
             (res) => {
@@ -142,14 +147,13 @@ export class PluginsComponent {
               }
               if (message === "") {
                 this.entityList.table.rowDetail.collapseAllRows();
-                this.snackBar.open(T('Selected plugins updated.'), 'close', { duration: 5000 });
+                this.dialogService.Info(helptext.multi_update_dialog.title, helptext.multi_update_dialog.succeed);
               } else {
                 message = '<ul>' + message + '</ul>';
                 this.dialogService.errorReport(T('Plugin Update Failed'), message);
               }
             },
             (res) => {
-              this.snackBar.open(T('Updating selected plugins failed.'), 'close', { duration: 5000 });
               new EntityUtils().handleWSError(this.entityList, res, this.dialogService);
             });
       }
@@ -172,7 +176,6 @@ export class PluginsComponent {
     private loader: AppLoaderService,
     private ws: WebSocketService,
     private dialogService: DialogService,
-    private snackBar: MatSnackBar,
     private router: Router,
     protected matDialog: MatDialog) {
       myIP.v4().then((pubIp) => {
@@ -187,28 +190,29 @@ export class PluginsComponent {
     return new Promise(async (resolve, reject) => {
       await this.ws.call('pool.query').toPromise().then((res) => {
         if (res.length === 0) {
-          resolve(false);
+          resolve(true);
           this.noPoolDialog();
           return;
         }
         this.availablePools = res
       }, (err) => {
         resolve(false);
-        new EntityUtils().handleWSError(this.entityList, err);
+        new EntityUtils().handleWSError(this.entityList, err, this.dialogService);
       });
 
       if (this.availablePools !== undefined) {
         this.ws.call('jail.get_activated_pool').toPromise().then((res) => {
+          resolve(true);
           if (res != null) {
             this.activatedPool = res;
-            resolve(true);
           } else {
-            resolve(false);
             this.activatePool();
           }
         }, (err) => {
-          resolve(false);
-          new EntityUtils().handleWSError(this.entityList, err);
+          this.dialogService.errorReport(err.trace.class, err.reason, err.trace.formatted).subscribe(
+            (res)=> {
+              resolve(false);
+            });
         })
       }
     });
@@ -216,10 +220,10 @@ export class PluginsComponent {
 
   noPoolDialog() {
     const dialogRef = this.dialogService.confirm(
-      T('No Pools'),
-      T('Jails cannot be created or managed until a pool is present for storing them.'),
+      jailHelptext.noPoolDialog.title,
+      jailHelptext.noPoolDialog.message,
       true,
-      T('Create Pool'));
+      jailHelptext.noPoolDialog.buttonMsg);
 
       dialogRef.subscribe((res) => {
         if (res) {
@@ -232,17 +236,17 @@ export class PluginsComponent {
     const self = this;
 
     const conf: DialogFormConfiguration = {
-      title: T("Activate Pool for Jail Manager"),
+      title: jailHelptext.activatePoolDialog.title,
       fieldConfig: [
         {
           type: 'select',
           name: 'selectedPool',
-          placeholder: T('Choose a pool or dataset for jail storage'),
-          options: this.availablePools ? this.availablePools.map(pool => {return {label: pool.name, value: pool.name}}) : [],
+          placeholder: jailHelptext.activatePoolDialog.selectedPool_placeholder,
+          options: this.availablePools ? this.availablePools.map(pool => {return {label: pool.name + (pool.is_decrypted ? '' : ' (Locked)'), value: pool.name, disable: !pool.is_decrypted}}) : [],
           value: this.activatedPool
         }
       ],
-      saveButtonText: T("Activate"),
+      saveButtonText: jailHelptext.activatePoolDialog.saveButtonText,
       customSubmit: function (entityDialog) {
         const value = entityDialog.formValue;
         self.entityList.loader.open();
@@ -252,18 +256,24 @@ export class PluginsComponent {
             entityDialog.dialogRef.close(true);
             self.entityList.loaderOpen = true;
             self.entityList.getData();
-
-            self.snackBar.open("Successfully activate pool " + value['selectedPool'] , 'close', { duration: 5000 });
+            self.dialogService.Info(
+              jailHelptext.activatePoolDialog.successInfoDialog.title,
+              jailHelptext.activatePoolDialog.successInfoDialog.message + value['selectedPool'],
+              '500px', 'info', true);
           },
           (res) => {
             self.entityList.loader.close();
-            new EntityUtils().handleWSError(this.entityList, res);
+            new EntityUtils().handleWSError(self.entityList, res, self.dialogService);
           });
       }
     }
     if (this.availablePools) {
       this.dialogService.dialogForm(conf);
     }
+  }
+
+  prerequisiteFailedHandler(entityList) {
+    this.entityList = entityList;
   }
 
   afterInit(entityList: any) {
@@ -343,7 +353,7 @@ export class PluginsComponent {
   };
 
   wsMultiDeleteParams(selected: any) {
-    const params: Array<any> = ['jail.do_delete'];
+    const params: Array<any> = ['jail.delete'];
     params.push(this.getSelectedNames(selected));
     return params;
   }
@@ -351,8 +361,8 @@ export class PluginsComponent {
 
   getActions(parentrow) {
     const actions = [{
-      id: parentrow.name,
-      name: "start",
+      name: parentrow.name,
+      id: "start",
       label: T("START"),
       icon: 'play_arrow',
       onClick: (row) => {
@@ -370,8 +380,8 @@ export class PluginsComponent {
       }
     },
     {
-      id: parentrow.name,
-      name: "restart",
+      name: parentrow.name,
+      id: "restart",
       label: T("RESTART"),
       icon: 'replay',
       onClick: (row) => {
@@ -389,8 +399,8 @@ export class PluginsComponent {
       }
     },
     {
-      id: parentrow.name,
-      name: "stop",
+      name: parentrow.name,
+      id: "stop",
       label: T("STOP"),
       icon: 'stop',
       onClick: (row) => {
@@ -408,8 +418,8 @@ export class PluginsComponent {
       }
     },
     {
-      id: parentrow.name,
-      name: "update",
+      name: parentrow.name,
+      id: "update",
       label: T("UPDATE"),
       icon: 'update',
       onClick: (row) => {
@@ -419,22 +429,32 @@ export class PluginsComponent {
         dialogRef.componentInstance.submit();
         dialogRef.componentInstance.success.subscribe((res) => {
           dialogRef.close(true);
-          this.snackBar.open(T("Plugin ") + row.name + T(" updated."), T('Close'), { duration: 5000 });
+          this.dialogService.Info(T('Plugin Updated'), T("Plugin ") + row.name + T(" updated."));
         });
       }
     },
     {
-      id: parentrow.name,
-      name: "management",
-      label: T("MANAGE"),
-      icon: 'settings',
+      name: parentrow.name,
+      icon: 'device_hub',
+      id: "mount",
+      label: T("Mount points"),
       onClick: (row) => {
-        window.open(row.admin_portal);
+        this.router.navigate(
+          new Array('').concat(["jails", "storage", row.name]));
       }
     },
     {
-      id: parentrow.name,
-      name: "delete",
+      name: parentrow.name,
+      id: "management",
+      label: T("MANAGE"),
+      icon: 'settings',
+      onClick: (row) => {
+        this.gotoAdminPortal(row);
+      }
+    },
+    {
+      name: parentrow.name,
+      id: "delete",
       label: T("UNINSTALL"),
       icon: 'delete',
       onClick: (row) => {
@@ -444,8 +464,8 @@ export class PluginsComponent {
 
     if (parentrow.plugin === 'asigra') {
       actions.push({
-        id: parentrow.name,
-        name: "register",
+        name: parentrow.name,
+        id: "register",
         label: T('REGISTER'),
         icon: 'assignment',
         onClick: (row) => {
@@ -455,8 +475,8 @@ export class PluginsComponent {
     }
     if (parentrow.plugin_info) {
       actions.push({
-        id: parentrow.name,
-        name: "postinstall",
+        name: parentrow.name,
+        id: "postinstall",
         label: T('POST INSTALL NOTES'),
         icon: 'description',
         onClick: (row) => {
@@ -470,8 +490,8 @@ export class PluginsComponent {
     }
     if (parentrow.doc_url) {
       actions.push({
-        id: parentrow.name,
-        name: "docurl",
+        name: parentrow.name,
+        id: "docurl",
         label: T('DOCUMENTATION'),
         icon: 'info',
         onClick: (row) => {
@@ -487,7 +507,7 @@ export class PluginsComponent {
       return false;
     } else if (actionId === 'stop' && row.state === "down") {
       return false;
-    } else if (actionId === 'management' && (row.state === "down" || row.admin_portal == null)) {
+    } else if (actionId === 'management' && (row.state === "down" || row.admin_portals.length === 0)) {
       return false;
     } else if (actionId === 'restart' && row.state === "down") {
       return false;
@@ -523,5 +543,62 @@ export class PluginsComponent {
 
   wsDeleteParams(row, id) {
     return row.state === 'up' ? [id, {force: true}] : [id];
+  }
+
+  resourceTransformIncomingRestData(data) {
+    return data.map(plugin =>  {
+      plugin['boot'] = plugin['boot'] === 'on' ? true : false;
+      plugin['icon'] = _.find(this.availablePlugins, {plugin: plugin.plugin}).icon;
+      return plugin;
+    });
+  }
+
+  onCheckboxChange(row) {
+    this.loader.open();
+    row.boot = !row.boot;
+    this.ws.call('plugin.update', [row.id, {'boot': row.boot ? 'on' : 'off'}] )
+    .subscribe(
+      (res) => {
+        if (!res) {
+          row.boot = !row.boot;
+        }
+        this.loader.close();
+      },
+      (err) => {
+        this.loader.close();
+        new EntityUtils().handleWSError(this, err, this.dialogService);
+      });
+  }
+
+  gotoAdminPortal(row) {
+    if (row.admin_portals.length > 1) {
+      const conf: DialogFormConfiguration = {
+        title: helptext.portal_dialog.title,
+        fieldConfig: [
+          {
+            type: 'select',
+            name: 'admin_portal',
+            placeholder: helptext.portal_dialog.admin_portal_placeholder,
+            options: row.admin_portals ? row.admin_portals.map(item => {return {label: item, value: item}}) : [],
+            value: row.admin_portals[0]
+          }
+        ],
+        saveButtonText: helptext.portal_dialog.saveButtonText,
+        customSubmit: function (entityDialog) {
+          const value = entityDialog.formValue;
+          window.open(value.admin_portal);
+          entityDialog.dialogRef.close(true);
+        }
+      }
+      this.dialogService.dialogForm(conf);
+    } else {
+      window.open(row.admin_portals);
+    }
+  }
+
+  iconAction(row) {
+    if (row.state === "up" && row.admin_portals.length > 0) {
+      this.gotoAdminPortal(row);
+    }
   }
 }

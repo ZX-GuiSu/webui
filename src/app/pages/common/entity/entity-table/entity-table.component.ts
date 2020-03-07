@@ -1,6 +1,6 @@
 
 import { AfterViewInit, Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { MatSnackBar } from '@angular/material';
+import { MatDialog } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
 import { CoreEvent, CoreService } from 'app/core/services/core.service';
@@ -17,6 +17,7 @@ import { WebSocketService } from '../../../../services/ws.service';
 import { T } from '../../../../translate-marker';
 import { EntityUtils } from '../utils';
 import { EntityTableRowDetailsComponent } from './entity-table-row-details/entity-table-row-details.component';
+import { EntityJobComponent } from '../entity-job/entity-job.component';
 
 export interface InputTableConf {
   prerequisite?: any;
@@ -36,6 +37,7 @@ export interface InputTableConf {
   custActions?: any[];
   multiActions?:any[];
   multiActionsIconsOnly?:boolean;
+  noActions?: boolean;
   config?: any;
   confirmDeleteDialog?: any;
   checkbox_confirm?: any;
@@ -63,6 +65,7 @@ export interface InputTableConf {
   onCheckboxChange?(row): any;
   onSliderChange?(row): any;
   callGetFunction?(entity: EntityTableComponent): any;
+  prerequisiteFailedHandler?(entity: EntityTableComponent);
 }
 
 export interface EntityTableAction {
@@ -153,6 +156,11 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private interval: any;
   private excuteDeletion = false;
+  private needRefreshTable = false;
+  private needTableResize = true;
+
+  public hasActions = true;
+  public sortKey: string;
 
   protected toDeleteRow: any;
   public hasDetails = () =>
@@ -162,11 +170,11 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
       ? (this.allColumns.length - this.conf.columns.length) * DETAIL_HEIGHT + 76 // add space for padding
       : this.conf.detailRowHeight || 100;
 
-
   constructor(protected core: CoreService, protected rest: RestService, protected router: Router, protected ws: WebSocketService,
     protected _eRef: ElementRef, protected dialogService: DialogService, protected loader: AppLoaderService,
-    protected erdService: ErdService, protected translate: TranslateService, protected snackBar: MatSnackBar,
-    public sorter: StorageService, protected job: JobService, protected prefService: PreferencesService) {
+    protected erdService: ErdService, protected translate: TranslateService,
+    public storageService: StorageService, protected job: JobService, protected prefService: PreferencesService,
+    protected matDialog: MatDialog) {
       this.core.register({observerClass:this, eventName:"UserPreferencesChanged"}).subscribe((evt:CoreEvent) => {
         this.multiActionsIconsOnly = evt.data.preferIconsOnly;
       });
@@ -181,7 +189,9 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnInit() {
     this.cardHeaderReady = this.conf.cardHeaderComponent ? false : true;
     this.setTableHeight();
+    this.hasActions = this.conf.noActions === true ? false : true;
 
+    this.sortKey = (this.conf.config.deleteMsg && this.conf.config.deleteMsg.key_props) ? this.conf.config.deleteMsg.key_props[0] : this.conf.columns[0].prop;
     setTimeout(async() => {
       if (this.conf.prerequisite) {
         await this.conf.prerequisite().then(
@@ -193,6 +203,11 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
               this.getData();
               if (this.conf.afterInit) {
                 this.conf.afterInit(this);
+              }
+            } else {
+              this.showSpinner = false;
+              if (this.conf.prerequisiteFailedHandler) {
+                this.conf.prerequisiteFailedHandler(this);
               }
             }
           }
@@ -320,18 +335,23 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
   dropLastMaxWidth() {
     // Reset all column maxWidths
     this.conf.columns.forEach((column) => {
-      column['maxWidth'] = (this.colMaxWidths.find(({name}) => name === column.name)).maxWidth;
+      if (this.colMaxWidths.length > 0) {
+        column['maxWidth'] = (this.colMaxWidths.find(({name}) => name === column.name)).maxWidth;
+      }
     })
     // Delete maXwidth on last col displayed (prevents a display glitch)
-    delete (this.conf.columns[Object.keys(this.conf.columns).length-1]).maxWidth;
+    if (this.conf.columns.length > 0) {
+      delete (this.conf.columns[Object.keys(this.conf.columns).length-1]).maxWidth;
+    }
     return this.conf.columns;
   }
 
   setTableHeight() {
     let rowNum = 6, n, addRows = 4;
-    if (this.title === 'Boot Environments') {
-      n = 6;
-    } else if (this.title === 'Jails') {
+    // if (this.title === 'Boot Environments') {
+    //   n = 6;
+    // } else 
+    if (this.title === 'Jails') {
       n = 4;
     } else if (this.title === 'Virtual Machines') {
       n = 1;
@@ -364,7 +384,6 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   getData() {
-
     const sort: Array<String> = [];
     let options: Object = new Object();
 
@@ -467,7 +486,7 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     this.rows = this.generateRows(res);
-
+    this.storageService.tableSorter(this.rows, this.sortKey, 'asc')
     if (this.conf.dataHandler) {
       this.conf.dataHandler(this);
     }
@@ -481,13 +500,17 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
       this.setPaginationInfo();
       this.showDefaults = true;
     }
-    if ((this.expandedRows == 0 || !this.asyncView || this.excuteDeletion) && this.filter.nativeElement.value === '') {
+    if ((this.expandedRows == 0 || !this.asyncView || this.excuteDeletion || this.needRefreshTable) && this.filter.nativeElement.value === '') {
       this.excuteDeletion = false;
+      this.needRefreshTable = false;
+      if (this.needTableResize || (!this.needTableResize && this.expandedRows > 0)) {
+        this.updateTableHeightAfterDetailToggle();
+        }
+      this.needTableResize = true;
       this.currentRows = this.rows;
       this.paginationPageIndex  = 0;
       this.setPaginationInfo();
     }
-
     return res;
 
   }
@@ -632,9 +655,9 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
 
   //generate delete msg
   getDeleteMessage(item) {
-    let deleteMsg = "Delete the selected item?";
+    let deleteMsg = T("Delete the selected item?");
     if (this.conf.config.deleteMsg) {
-      deleteMsg = "Delete " + this.conf.config.deleteMsg.title;
+      deleteMsg = T("Delete ") + this.conf.config.deleteMsg.title;
       let msg_content = ' <b>' + item[this.conf.config.deleteMsg.key_props[0]];
       if (this.conf.config.deleteMsg.key_props.length > 1) {
         for (let i = 1; i < this.conf.config.deleteMsg.key_props.length; i++) {
@@ -700,29 +723,16 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
     this.loader.open();
     this.loaderOpen = true;
     const data = {};
-    if (this.conf.wsDelete) {
-      this.busy = this.ws.call(this.conf.wsDelete, (this.conf.wsDeleteParams? this.conf.wsDeleteParams(this.toDeleteRow, id) : [id])).subscribe(
-        (resinner) => {
-          this.getData();
-          this.excuteDeletion = true;
-        },
-        (resinner) => {
-          new EntityUtils().handleWSError(this, resinner, this.dialogService);
-          this.loader.close();
-        }
-      )
-    } else {
-      this.busy = this.rest.delete(this.conf.resource_name + '/' + id, data).subscribe(
-        (resinner) => {
-          this.getData();
-          this.excuteDeletion = true;
-        },
-        (resinner) => {
-          new EntityUtils().handleError(this, resinner);
-          this.loader.close();
-        }
-      );
-    }
+    this.busy = this.ws.call(this.conf.wsDelete, (this.conf.wsDeleteParams? this.conf.wsDeleteParams(this.toDeleteRow, id) : [id])).subscribe(
+      (resinner) => {
+        this.getData();
+        this.excuteDeletion = true;
+      },
+      (resinner) => {
+        new EntityUtils().handleWSError(this, resinner, this.dialogService);
+        this.loader.close();
+      }
+    )
   }
 
   doDeleteJob(item: any): Observable<{ state: 'SUCCESS' | 'FAILURE' } | false> {
@@ -756,9 +766,7 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
           this.loaderOpen = true;
         }),
         switchMap(() =>
-          (this.conf.wsDelete
-            ? this.ws.call(this.conf.wsDelete, [id])
-            : this.rest.delete(this.conf.resource_name + "/" + id, {})
+          (this.ws.call(this.conf.wsDelete, [id])
           ).pipe(
             take(1),
             catchError(error => {
@@ -799,11 +807,16 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
     // This section controls page height for infinite scrolling
     if (this.currentRows.length === 0) {
       this.tableHeight = 153;
-    } else if (this.currentRows.length > 0 && this.currentRows.length < this.paginationPageSize) {
-      this.tableHeight = (this.currentRows.length * this.rowHeight) + 110;
     } else {
-      this.tableHeight = (this.paginationPageSize * this.rowHeight) + 100;
-    }
+      if (this.currentRows.length > 0 && this.currentRows.length < this.paginationPageSize) {
+        this.tableHeight = (this.currentRows.length * this.rowHeight) + 110;
+      } else {
+        this.tableHeight = (this.paginationPageSize * this.rowHeight) + 100;
+      }
+      if (this.tableHeight < (160 + this.getRowDetailHeight())) {
+        this.tableHeight = 160 + this.getRowDetailHeight();
+      }
+    } 
 
     // Displays an accurate number for some edge cases
     if (this.paginationPageSize > this.currentRows.length) {
@@ -817,7 +830,7 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
     this.paginationPageIndex = 0;
     let sort = event.sorts[0],
       rows = this.currentRows;
-    this.sorter.tableSorter(rows, sort.prop, sort.dir);
+    this.storageService.tableSorter(rows, sort.prop, sort.dir);
     this.rows = rows;
     this.setPaginationInfo();
     setTimeout(() => {
@@ -890,7 +903,7 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
                     }
                   }
                   if (message === "") {
-                    this.snackBar.open("Items deleted.", 'close', { duration: 5000 });
+                    this.dialogService.Info(T("Items deleted"), '', '300px', 'info', true);
                   } else {
                     message = '<ul>' + message + '</ul>';
                     this.dialogService.errorReport(T('Items Delete Failed'), message);
@@ -952,11 +965,13 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
     obj['cols'] = this.conf.columns;
 
     let preferredCols = this.prefService.preferences.tableDisplayedColumns;
-    preferredCols.forEach((i) => {
-      if (i.title === this.title) {
-        preferredCols.splice(preferredCols.indexOf(i), 1);
-      }
-    });
+    if (preferredCols.length > 0) {
+      preferredCols.forEach((i) => {
+        if (i.title === this.title) {
+          preferredCols.splice(preferredCols.indexOf(i), 1);
+        }
+      });
+    }
     preferredCols.push(obj);
     this.prefService.savePreferences(this.prefService.preferences);
     if (this.title === 'Users') {
@@ -966,9 +981,12 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // resets col view to the default set in the table's component
   resetColViewToDefaults() {
-    this.conf.columns = this.originalConfColumns;
-    this.updateTableHeightAfterDetailToggle();
-    this.selectColumnsToShowOrHide();
+    if (!(this.conf.columns.length === this.originalConfColumns.length && 
+        this.conf.columns.length === this.allColumns.length)) {
+      this.conf.columns = this.originalConfColumns;
+      this.updateTableHeightAfterDetailToggle();
+      this.selectColumnsToShowOrHide();
+    }
   }
 
   isChecked(col:any) {
@@ -1009,14 +1027,16 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   resetTableToStartingHeight() {
-    if (!this.startingHeight) {
-      this.startingHeight = document.getElementsByClassName('ngx-datatable')[0].clientHeight;
-    }
-    document.getElementsByClassName('ngx-datatable')[0].setAttribute('style', `height: ${this.startingHeight}px`);
+    /*setTimeout(() => {
+      if (!this.startingHeight) {
+        this.startingHeight = document.getElementsByClassName('ngx-datatable')[0].clientHeight;
+      }
+      document.getElementsByClassName('ngx-datatable')[0].setAttribute('style', `height: ${this.startingHeight}px`);
+    }, 100);*/
   }
 
   updateTableHeightAfterDetailToggle() {
-    if (!this.startingHeight) {
+    /*if (!this.startingHeight) {
       this.resetTableToStartingHeight();
     }
     setTimeout(() => {
@@ -1024,7 +1044,7 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
       const newHeight = this.expandedRows * this.getRowDetailHeight() + this.startingHeight;
       const heightStr = `height: ${newHeight}px`;
       document.getElementsByClassName('ngx-datatable')[0].setAttribute('style', heightStr);
-    }, 0);
+    }, 100);*/
   }
 
   getButtonClass(prop) {
@@ -1034,6 +1054,7 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
       case 'SUCCESS' : return 'fn-theme-green';
       case 'ERROR' : return 'fn-theme-red';
       case 'FAILED' : return 'fn-theme-red';
+      case 'HOLD' : return 'fn-theme-yellow';
       default: return 'fn-theme-primary';
     }
   }
@@ -1044,5 +1065,17 @@ export class EntityTableComponent implements OnInit, AfterViewInit, OnDestroy {
     } else {
       return value !== 'PENDING';
     }
+  }
+
+  runningStateButton(jobid) {
+      const dialogRef = this.matDialog.open(EntityJobComponent, { data: { "title": T("Task is running") }, disableClose: false });
+      dialogRef.componentInstance.jobId = jobid;
+      dialogRef.componentInstance.wsshow();
+      dialogRef.componentInstance.success.subscribe((res) => {
+        dialogRef.close();
+      });
+      dialogRef.componentInstance.failure.subscribe((err) => {
+        dialogRef.close();
+      });
   }
 }

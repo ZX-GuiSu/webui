@@ -3,15 +3,14 @@ import * as _ from 'lodash';
 import { WebSocketService } from '../../../services/';
 import { PreferencesService } from 'app/core/services/preferences.service';
 import { helptext_system_support as helptext } from 'app/helptext/system/support';
-import { SnackbarService } from '../../../services/snackbar.service';
 
 @Component({
   selector : 'app-support',
   templateUrl: './support.component.html',
-  providers: [SnackbarService]
+  providers: []
 })
 export class SupportComponent implements OnInit {
-  public is_freenas: boolean;
+  public product_type: string;
   public isFooterConsoleOpen: boolean;
   public scrshot: any;
   public subs: any;
@@ -39,9 +38,9 @@ export class SupportComponent implements OnInit {
               {}
 
   ngOnInit() {
-    window.localStorage['is_freenas'] === 'true' ? this.is_freenas = true : this.is_freenas = false;
+    this.product_type = window.localStorage['product_type'];
     this.ws.call('system.info').subscribe((res) => {
-      if (this.is_freenas) {
+      if (this.product_type === 'CORE') {
         this.getFNSysInfo(res);
         this.getFreeNASImage(res.system_product)
       } else {
@@ -72,20 +71,21 @@ export class SupportComponent implements OnInit {
       this.customer_name = res.license.customer_name;
       res.license.features.length === 0 ? this.features = 'NONE' : this.features = res.license.features.join(', ');
       this.contract_type = res.license.contract_type;
-      this.expiration_date =res.license.contract_end.$value;
+      let expDateConverted = new Date(res.license.contract_end.$value);
+      this.expiration_date = res.license.contract_end.$value;
       res.license.system_serial_ha ?
           this.sys_serial = res.license.system_serial + ' / ' + res.license.system_serial_ha :
           this.sys_serial = res.license.system_serial;
       res.license.addhw.length === 0 ? this.add_hardware = 'NONE' : this.add_hardware = res.license.addhw.join(', ');
-      const now = new Date();
-      const then = new Date(res.license.contract_end.$value);
+      const now = new Date(res.datetime.$date);
+      const then = expDateConverted;
       this.daysLeftinContract = this.daysTillExpiration(now, then);
     };
   }
 
   daysTillExpiration(now, then) {
     const oneDay = 24*60*60*1000; // milliseconds in a day
-    return Math.round(Math.abs((now.getTime() - then.getTime())/(oneDay)));
+    return Math.round((then.getTime() - now.getTime())/(oneDay))
   }
 
   getTrueNASImage(sys_product) {

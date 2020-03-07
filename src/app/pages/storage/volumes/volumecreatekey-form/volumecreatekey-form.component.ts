@@ -13,7 +13,7 @@ import {
   FieldConfig
 } from '../../../common/entity/entity-form/models/field-config.interface';
 import { DialogService } from 'app/services/dialog.service';
-import { MatSnackBar, MatDialog } from '@angular/material';
+import { MatDialog } from '@angular/material/dialog';
 import { Formconfiguration } from 'app/pages/common/entity/entity-form/entity-form.component';
 import { AppLoaderService } from '../../../../services/app-loader/app-loader.service';
 import { T } from '../../../../translate-marker';
@@ -27,7 +27,8 @@ export class VolumeCreatekeyFormComponent implements Formconfiguration {
 
   saveSubmitText = T("Create Passphrase");
 
-  resource_name = 'storage/volume';
+  queryCall = 'pool.query';
+  queryKey = 'id';
   route_return: string[] = [ 'storage', 'pools'];
   isNew = false;
   isEntity = true;
@@ -76,7 +77,7 @@ export class VolumeCreatekeyFormComponent implements Formconfiguration {
   public custActions: Array<any> = [
     {
       id : 'download_encrypt_key',
-      name : 'Download Encryption Key',
+      name : T('Download Encryption Key'),
       disabled: true,
       function : () => {
         this.ws.call('auth.check_user', ['root', this.admin_pw]).subscribe((res) => {
@@ -90,7 +91,7 @@ export class VolumeCreatekeyFormComponent implements Formconfiguration {
     },
     {
       id : 'custom_cancel',
-      name : 'Cancel',
+      name : T('Cancel'),
       function : () => {
         this.router.navigate(new Array('/').concat(
           this.route_return));
@@ -112,7 +113,6 @@ export class VolumeCreatekeyFormComponent implements Formconfiguration {
       protected _appRef: ApplicationRef,
       protected dialogService: DialogService,
       protected loader: AppLoaderService,
-      private snackBar: MatSnackBar,
       private mdDialog: MatDialog,
       private encryptionService: EncryptionService
   ) {}

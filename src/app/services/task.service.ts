@@ -1,15 +1,13 @@
 
 
 import { Injectable } from '@angular/core';
-import { RestService } from './rest.service';
-import { WebSocketService } from './ws.service';
 import * as cronParser from 'cron-parser';
 import { Moment } from 'moment';
+import { RestService } from './rest.service';
+import { WebSocketService } from './ws.service';
 
 @Injectable()
 export class TaskService {
-
-  protected cronjobResource: string = 'tasks/cronjob';
   protected volumeResource: string = 'storage/volume/';
   protected time_options: any[] = [
     { label: '00:00:00', value: '00:00' },
@@ -113,41 +111,13 @@ export class TaskService {
 
   constructor(protected rest: RestService, protected ws: WebSocketService) {};
 
-  getMonthChoices() {
-    return this.ws.call('notifier.choices', ['MONTHS_CHOICES', [true, false]]);
-  };
-
-  getWeekdayChoices() {
-    return this.ws.call('notifier.choices', ['WEEKDAYS_CHOICES', [true, false]]);
-  };
-
-  listCronjob() {
-    return this.rest.get(this.cronjobResource, {});
-  }
-
-  getTaskInterval() {
-    return this.ws.call('notifier.choices', ['TASK_INTERVAL', [true, false]]);
-  }
-
   getTimeOptions() {
     return this.time_options;
   }
 
   getVolumeList() {
-    return this.rest.get(this.volumeResource, {});
+    return this.ws.call('pool.query', {});
   }
-
-  getRsyncModeChoices() {
-    return this.ws.call('notifier.choices', ['RSYNC_MODE_CHOICES', [true, false]]);
-  };
-
-  getRsyncDirectionChoices() {
-    return this.ws.call('notifier.choices', ['RSYNC_DIRECTION', [true, false]]);
-  };
-
-  getSmarttestTypeChoices() {
-    return this.ws.call('notifier.choices', ['SMART_TEST', [true, false]]);
-  };
 
   /**
    * Takes a cron expression and returns an array of Moment objects

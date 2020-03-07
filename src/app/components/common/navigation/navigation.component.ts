@@ -39,7 +39,7 @@ export class NavigationComponent extends ViewControllerComponent implements OnIn
           _.find(_.find(menuItem, {state : "storage"}).sub, {state : "multipaths"}).disabled = true;
         }
       });
-      if (window.localStorage.getItem('is_freenas') === 'false') {
+      if (window.localStorage.getItem('product_type') === 'ENTERPRISE') {
         this.ws.call('failover.licensed').subscribe((is_ha) => {
           if (is_ha) {
             _.find(_.find(menuItem,
@@ -55,17 +55,12 @@ export class NavigationComponent extends ViewControllerComponent implements OnIn
             _.find(menuItem, { state: "vm" }).disabled = true;
           });
 
+        // hide acme for truenas
+        _.find(_.find(menuItem, { state: 'system' }).sub, { state : 'acmedns'}).disabled = true;
+
         for(let i = 0; i < this.navService.turenasFeatures.length; i++) {
           const targetMenu = this.navService.turenasFeatures[i];
           _.find(_.find(menuItem, { state: targetMenu.menu }).sub, { state : targetMenu.sub}).disabled = false;
-          // special case for proactive support
-          if (targetMenu.sub === 'proactivesupport') {
-            this.ws.call('support.is_available').subscribe((res) => {
-              if (res !== true) {
-                _.find(_.find(menuItem, { state: targetMenu.menu }).sub, { state : targetMenu.sub}).disabled = true;
-              }
-            });
-          }
         }
       }
  
@@ -74,10 +69,10 @@ export class NavigationComponent extends ViewControllerComponent implements OnIn
         eventName: "SysInfo"
         }).subscribe((evt:CoreEvent) => {
          
-          if (window.localStorage.getItem('is_freenas') === 'false') {
+          if (window.localStorage.getItem('product_type') === 'ENTERPRISE') {
             // Feature detection
 
-            if (evt.data.license.features.indexOf('JAILS') === -1) {
+            if (evt.data.license && evt.data.license.features.indexOf('JAILS') === -1) {
               _.find(menuItem, {state : "plugins"}).disabled = true;
               _.find(menuItem, {state : "jails"}).disabled = true;
             }

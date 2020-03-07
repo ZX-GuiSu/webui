@@ -29,8 +29,6 @@ export class DiskListComponent {
 	  { name: T('Acoustic Level'), prop: 'acousticlevel', hidden: true },
 	  { name: T('Enable S.M.A.R.T.'), prop: 'togglesmart', hidden: true },
 	  { name: T('S.M.A.R.T. extra options'), prop: 'smartoptions', hidden: true },
-		{ name: T('Password for SED'), prop: 'passwd', hidden: true },
-		{ name: T('Enclosure'), prop: 'enclosure_parsed', hidden: true }
 	];
 	public config: any = {
 		paging: true,
@@ -143,6 +141,16 @@ export class DiskListComponent {
 				"storage", "disks", "edit", row.identifier
 				]));
 			}
+		}, {
+			id: parentRow.name,
+			icon: 'format_list_bulleted',
+			name: 'smartresults',
+			label: T("S.M.A.R.T Test Results"),
+			onClick: (row) => {
+				this.router.navigate(new Array('/').concat([
+				"storage", "disks", "smartresults", row.name
+				]));
+			}
 		}];
 		if (_.find(this.unused, {"name": parentRow.name})) {
 			actions.push({
@@ -161,12 +169,25 @@ export class DiskListComponent {
   }
 
   dataHandler(entityList: any) {
+	this.diskUpdate(entityList);
     this.disk_ready.subscribe(() => {
-      for (const disk of entityList.rows) {
+		this.diskUpdate(entityList);
+	});
+  }
+
+  diskUpdate(entityList: any) {
+	for (const disk of entityList.rows) {
         disk.readable_size = (<any>window).filesize(disk.size, { standard: 'iec' });
         disk.pool = this.disk_pool.get(disk.name) || this.disk_pool.get(disk.devname);
-        disk.enclosure_parsed = disk.enclosure ? disk.enclosure.number : undefined;
-	    }
-    });
+	}
+  }
+
+  afterInit(entityList) {
+	  this.ws.subscribe('disk.query').subscribe((res) => {
+		  if (res) {
+			entityList.needTableResize = false;
+			entityList.getData();
+		  }
+	  })
   }
 }

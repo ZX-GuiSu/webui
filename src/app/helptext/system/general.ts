@@ -2,22 +2,22 @@ import { Validators } from "@angular/forms";
 import { T } from "app/translate-marker";
 
 export const helptext_system_general = {
+  stg_fieldset_gui: T('GUI'),
+  stg_fieldset_loc: T('Localization'),
+  stg_fieldset_other: T('Other Options'),
 
   stg_guicertificate: {
     placeholder: T("GUI SSL Certificate"),
-    tooltip: T('Required for <i>HTTPS</i>. Browse to the location of\
- the certificate to use for encrypted connections. If\
- there are no certificates, create a <a\
- href="--docurl--/system.html#cas"\
- target="_blank">Certificate Authority (CA)</a> then\
- the <a href="--docurl--/system.html#certificates"\
- target="_blank">Certificate</a>.'
+    tooltip: T('The system uses a self-signed \
+ <a href="--docurl--/system.html#certificates" target="_blank">certificate</a> \
+ to enable encrypted web interface connections. To change the default \
+ certificate, select a different created or imported certificate.'
     ),
     validation: [Validators.required]
   },
 
   stg_guiaddress: {
-    placeholder: T("WebGUI IPv4 Address"),
+    placeholder: T("Web Interface IPv4 Address"),
     tooltip: T(
       "Choose a recent IP address to limit the usage when\
  accessing the administrative GUI. The built-in HTTP\
@@ -28,7 +28,7 @@ export const helptext_system_general = {
   },
 
   stg_guiv6address: {
-    placeholder: T("WebGUI IPv6 Address"),
+    placeholder: T("Web Interface IPv6 Address"),
     tooltip: T(
       "Choose a recent IPv6 address to limit the usage when\
  accessing the administrative GUI. The built-in HTTP\
@@ -39,7 +39,7 @@ export const helptext_system_general = {
   },
 
   stg_guiport: {
-    placeholder: T("WebGUI HTTP Port"),
+    placeholder: T("Web Interface HTTP Port"),
     tooltip: T(
       'Allow configuring a non-standard port to access the GUI\
  over <i>HTTP</i>. Changing this setting might require\
@@ -51,7 +51,7 @@ export const helptext_system_general = {
   },
 
   stg_guihttpsport: {
-    placeholder: T("WebGUI HTTPS Port"),
+    placeholder: T("Web Interface HTTPS Port"),
     tooltip: T(
       "Allow configuring a non-standard port to access the GUI\
  over <i>HTTPS</i>."
@@ -60,10 +60,16 @@ export const helptext_system_general = {
   },
 
   stg_guihttpsredirect: {
-    placeholder: T("WebGUI HTTP -> HTTPS Redirect"),
+    placeholder: T("Web Interface HTTP -> HTTPS Redirect"),
     tooltip: T(
-      "Check this to redirect <i>HTTP</i> connections to\
- <i>HTTPS</i>. A <i>GUI SSL Certificate</i> must be selected."
+      'Redirect <i>HTTP</i> connections to <i>HTTPS</i>. A \
+ <i>GUI SSL Certificate</i> is required for <i>HTTPS</i>. Activating \
+ this also sets the <a \
+ href="https://en.wikipedia.org/wiki/HTTP_Strict_Transport_Security" \
+ target="_blank">HTTP Strict Transport Security (HSTS)</a> maximum age \
+ to <i>31536000</i> seconds (one year). This means that after a \
+ browser connects to the web interface for the first time, the browser \
+ continues to use HTTPS and renews this setting every year.'
     )
   },
 
@@ -86,20 +92,44 @@ export const helptext_system_general = {
     tooltip: T("Select a time zone.")
   },
 
+  date_format: {
+    placeholder: T('Date Format'),
+    tooltip: T('Choose a date format.')
+  },
+
+  time_format: {
+    placeholder: T('Time Format'),
+    tooltip: T('Choose a time format.')
+  },
+
   stg_sysloglevel: {
     placeholder: T("Syslog level"),
     tooltip: T(
       "When Syslog server is defined, only logs matching this\
  level are sent."
-    )
+    ),
+    options: [
+      {label:T('Emergency'), value:'F_EMERG'},
+      {label:T('Alert'), value:'F_ALERT'},
+      {label:T('Critical'), value:'F_CRIT'},
+      {label:T('Error'), value:'F_ERR'},
+      {label:T('Warning'), value:'F_WARNING'},
+      {label:T('Notice'), value:'F_NOTICE'},
+      {label:T('Info'), value:'F_INFO'},
+      {label:T('Debug'), value:'F_DEBUG'},
+      {label:T('Is Debug'), value:'F_IS_DEBUG'}
+    ]
   },
 
   stg_syslogserver: {
     placeholder: T("Syslog server"),
     tooltip: T(
-      "Define an <i>IP address or hostname:optional_port_number</i>\
- to send logs. When set, log entries write to both the\
- console and remote server."
+      "Remote syslog server DNS hostname or IP address.\
+ Nonstandard port numbers can be used by adding\
+ a colon and the port number to the hostname, like\
+ <samp>mysyslogserver:1928</samp>. Log entries\
+ are written to local logs and sent to the remote\
+ syslog server."
     )
   },
 
@@ -109,7 +139,7 @@ export const helptext_system_general = {
   },
 
   poolkeys: {
-    placeholder: T("Export Pool Ecryption Keys"),
+    placeholder: T("Export Pool Encryption Keys"),
     tooltip: T('')
   },
 
@@ -122,9 +152,8 @@ export const helptext_system_general = {
 
   usage_collection: {
     placeholder: T("Usage collection"),
-    tooltip: T("Enable sending anonymous usage statistics to iXsystems")
+    tooltip: T("Enable sending anonymous usage statistics to iXsystems.")
   },
-
 
   save_config_form: {
     title: T('Save Configuration'),
@@ -193,5 +222,15 @@ export const helptext_system_general = {
   validation_errors: {
     ui_address: T("Select <samp>0.0.0.0</samp> to include all addresses. When this has been chosen, additional addresses cannot be selected."),
     ui_v6address: T("Select <samp>::</samp> to include all addresses. When this has been chosen, additional addresses cannot be selected.")
+  },
+
+  config_download: {
+    failed_title: T("Error Downloading File"),
+    failed_message: T("Config could not be downloaded")
+  },
+
+  config_upload: {
+    title: T('Upload Config'),
+    message: T('Uploading...')
   }
 };

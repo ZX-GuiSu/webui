@@ -1,9 +1,10 @@
 import { Component } from '@angular/core';
-import { MatSnackBar } from '@angular/material';
+import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
 import { helptext_system_certificates } from 'app/helptext/system/certificates';
 import * as _ from 'lodash';
-import { WebSocketService } from '../../../../services/';
+import { WebSocketService, StorageService, DialogService } from '../../../../services/';
+import { LocaleService } from 'app/services/locale.service';
 import { EntityUtils } from '../../../common/entity/utils';
 
 @Component({
@@ -39,7 +40,16 @@ export class CertificateListComponent {
   }
 
   constructor(protected router: Router, protected aroute: ActivatedRoute,
-    protected ws: WebSocketService, public snackBar: MatSnackBar) {
+    protected ws: WebSocketService, public storage: StorageService,
+    public dialog: DialogService, public http: HttpClient, protected localeService: LocaleService) {
+  }
+
+  resourceTransformIncomingRestData(data) {
+    data.forEach((i) => {
+      i.from = this.localeService.formatDateTime(Date.parse(i.from));
+      i.until = this.localeService.formatDateTime(Date.parse(i.until));
+    })
+    return data;
   }
 
   afterInit(entityList: any) {
@@ -80,16 +90,21 @@ export class CertificateListComponent {
         label: helptext_system_certificates.list.action_export_certificate,
         onClick: (row) => {
           this.ws.call('certificate.query', [[["id", "=", row.id]]]).subscribe((res) => {
+            const fileName = res[0].name + '.crt';
             if (res[0]) {
-              this.ws.call('core.download', ['filesystem.get', [res[0].certificate_path], res[0].name + '.crt']).subscribe(
+              this.ws.call('core.download', ['filesystem.get', [res[0].certificate_path], fileName]).subscribe(
                 (res) => {
-                  this.snackBar.open(helptext_system_certificates.list.snackbar_open_window_message, helptext_system_certificates.list.snackbar_open_window_action, {
-                    duration: 5000
+                  const url = res[1];
+                  const mimetype = 'application/x-x509-user-cert';
+                  this.storage.streamDownloadFile(this.http, url, fileName, mimetype).subscribe(file => {
+                    this.storage.downloadBlob(file, fileName);
+                  }, err => {
+                    this.dialog.errorReport(helptext_system_certificates.list.download_error_dialog.title, 
+                      helptext_system_certificates.list.download_error_dialog.cert_message, `${err.status} - ${err.statusText}`);
                   });
-                  window.open(res[1]);
                 },
-                (res) => {
-                  new EntityUtils().handleError(this, res);
+                (err) => {
+                  new EntityUtils().handleWSError(this, err, this.dialog);
                 }
               );
             }
@@ -101,16 +116,21 @@ export class CertificateListComponent {
         label: helptext_system_certificates.list.action_export_private_key,
         onClick: (row) => {
           this.ws.call('certificate.query', [[["id", "=", row.id]]]).subscribe((res) => {
+            const fileName = res[0].name + '.key';
             if (res[0]) {
-              this.ws.call('core.download', ['filesystem.get', [res[0].privatekey_path], res[0].name + '.key']).subscribe(
+              this.ws.call('core.download', ['filesystem.get', [res[0].privatekey_path], fileName]).subscribe(
                 (res) => {
-                  this.snackBar.open(helptext_system_certificates.list.snackbar_open_window_message, helptext_system_certificates.list.snackbar_open_window_action, {
-                    duration: 5000
+                  const url = res[1];
+                  const mimetype = 'text/plain';
+                  this.storage.streamDownloadFile(this.http, url, fileName, mimetype).subscribe(file => {
+                    this.storage.downloadBlob(file, fileName);
+                  }, err => {
+                    this.dialog.errorReport(helptext_system_certificates.list.download_error_dialog.title, 
+                      helptext_system_certificates.list.download_error_dialog.key_message, `${err.status} - ${err.statusText}`);
                   });
-                  window.open(res[1]);
                 },
-                (res) => {
-                  new EntityUtils().handleError(this, res);
+                (err) => {
+                  new EntityUtils().handleWSError(this, err, this.dialog);
                 }
               );
             }
@@ -122,7 +142,6 @@ export class CertificateListComponent {
         label: helptext_system_certificates.list.action_create_acme_certificate,
         onClick: (row) => {
           this.router.navigate(new Array('').concat(["system", "certificates", "addacme", row.id]))
-          // console.log(row)
         }
       },
       {
@@ -131,9 +150,12 @@ export class CertificateListComponent {
         onClick: (row) => {
           this.entityList.doDeleteJob(row).subscribe(
             (progress) => {
+              if (progress.state && progress.state === 'FAILED') {
+                new EntityUtils().handleWSError(this.entityList, progress, this.dialog);
+              }
             },
             (err) => {
-              new EntityUtils().handleWSError(this.entityList, err);
+              new EntityUtils().handleWSError(this.entityList, err, this.dialog);
             },
             () => {
               this.entityList.getData();

@@ -1,185 +1,183 @@
 import { Component } from '@angular/core';
-import { Http } from '@angular/http';
+import { FormControl } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Validators, ValidationErrors, FormControl } from '@angular/forms';
+import { MatDialog } from '@angular/material/dialog';
+import { helptext_system_general as helptext } from 'app/helptext/system/general';
+import { FieldSet } from 'app/pages/common/entity/entity-form/models/fieldset.interface';
 import * as _ from 'lodash';
-import { MatDialog } from '@angular/material';
-import { DialogService, LanguageService, RestService, WebSocketService, SnackbarService } from '../../../services/';
+import { map } from 'rxjs/operators';
+import { EntityJobComponent } from 'app/pages//common/entity/entity-job/entity-job.component';
+import { DialogService, LanguageService, RestService, StorageService, SystemGeneralService, WebSocketService } from '../../../services/';
 import { AppLoaderService } from '../../../services/app-loader/app-loader.service';
+import { LocaleService } from 'app/services/locale.service';
 import { DialogFormConfiguration } from '../../common/entity/entity-dialog/dialog-form-configuration.interface';
 import { FieldConfig } from '../../common/entity/entity-form/models/field-config.interface';
-import { FieldSet } from 'app/pages/common/entity/entity-form/models/fieldset.interface';
-import { helptext_system_general as helptext } from 'app/helptext/system/general';
 import { EntityUtils } from '../../common/entity/utils';
-import { T } from '../../../translate-marker';
-
 
 @Component({
   selector: 'app-general',
   template: `<entity-form [conf]="this"></entity-form>`,
   styleUrls: ['./general.component.css'],
-  providers: [SnackbarService]
+  providers: []
 })
 export class GeneralComponent {
-
-  //protected resource_name: string = 'system/settings';
   protected queryCall = 'system.general.config';
   protected updateCall = 'system.general.update';
   public sortLanguagesByName = true;
-  public languageList: any;
-
+  public languageList: { label: string; value: string }[] = [];
+  public languageKey: string;  
   public fieldConfig: FieldConfig[] = []
+
   public fieldSets: FieldSet[] = [
     {
-      name: 'top',
-      width: '100%',
-      label: false,
-      config:[
-      {
-        type: 'select',
-        name: 'ui_certificate',
-        placeholder: helptext.stg_guicertificate.placeholder,
-        tooltip: helptext.stg_guicertificate.tooltip,
-        options: [
-          { label: '---', value: null }
-        ],
-        required: true,
-        validation: helptext.stg_guicertificate.validation,
-      },
-      {
-        type: 'select',
-        name: 'ui_address',
-        multiple: true,
-        placeholder: helptext.stg_guiaddress.placeholder,
-        tooltip: helptext.stg_guiaddress.tooltip,
-        required: true,
-        options: [],
-        validation: [this.IPValidator('ui_address', '0.0.0.0')]
-      },
-      {
-        type: 'select',
-        name: 'ui_v6address',
-        multiple: true,
-        placeholder: helptext.stg_guiv6address.placeholder,
-        tooltip: helptext.stg_guiv6address.tooltip,
-        required: true,
-        options: [],
-        validation: [this.IPValidator('ui_v6address', '::')]
-      },
-      {
-        type: 'input',
-        name: 'ui_port',
-        placeholder: helptext.stg_guiport.placeholder,
-        tooltip: helptext.stg_guiport.tooltip,
-        inputType: 'number',
-        validation: helptext.stg_guiport.validation
-      },
-      {
-        type: 'input',
-        name: 'ui_httpsport',
-        placeholder: helptext.stg_guihttpsport.placeholder,
-        tooltip: helptext.stg_guihttpsport.tooltip,
-        inputType: 'number',
-        validation: helptext.stg_guihttpsport.validation
-      },
-      {
-        type: 'checkbox',
-        name: 'ui_httpsredirect',
-        placeholder: helptext.stg_guihttpsredirect.placeholder,
-        tooltip: helptext.stg_guihttpsredirect.tooltip,
-      }
-    ]
-  },
-  {
-    name: 'col1',
-    width: '49%',
-    label: false,
-    config:[
-      {
-        type: 'select',
-        name: 'language',
-        placeholder: helptext.stg_language.placeholder,
-        tooltip: helptext.stg_language.tooltip,
-        options: []
-      }
-    ]
-  },
-  {
-    name: 'spacer',
-    width: '2%',
-    label: false,
-    config:[]
-  },
-  {
-    name: 'col2',
-    width: '49%',
-    label: false,
-    config:[
-    {
-      type: 'radio',
-      name: 'language_sort',
-      placeholder: helptext.stg_language_sort_label,
-      options: [
-        {label: helptext.stg_language_sort_name,
-         name: 'language_name',
-         value: true},
-        {label: helptext.stg_language_sort_code,
-         name: 'language_code',
-         value: false},
-      ],
-      value: true
+      name: helptext.stg_fieldset_gui,
+      width: "100%",
+      label: true,
+      config: [
+        {
+          type: "select",
+          name: "ui_certificate",
+          placeholder: helptext.stg_guicertificate.placeholder,
+          tooltip: helptext.stg_guicertificate.tooltip,
+          options: [{ label: "---", value: null }],
+          required: true,
+          validation: helptext.stg_guicertificate.validation
+        },
+        {
+          type: "select",
+          name: "ui_address",
+          multiple: true,
+          placeholder: helptext.stg_guiaddress.placeholder,
+          tooltip: helptext.stg_guiaddress.tooltip,
+          required: true,
+          options: [],
+          validation: [this.IPValidator("ui_address", "0.0.0.0")]
+        },
+        {
+          type: "select",
+          name: "ui_v6address",
+          multiple: true,
+          placeholder: helptext.stg_guiv6address.placeholder,
+          tooltip: helptext.stg_guiv6address.tooltip,
+          required: true,
+          options: [],
+          validation: [this.IPValidator("ui_v6address", "::")]
+        },
+        {
+          type: "input",
+          name: "ui_port",
+          placeholder: helptext.stg_guiport.placeholder,
+          tooltip: helptext.stg_guiport.tooltip,
+          inputType: "number",
+          validation: helptext.stg_guiport.validation
+        },
+        {
+          type: "input",
+          name: "ui_httpsport",
+          placeholder: helptext.stg_guihttpsport.placeholder,
+          tooltip: helptext.stg_guihttpsport.tooltip,
+          inputType: "number",
+          validation: helptext.stg_guihttpsport.validation
+        },
+        {
+          type: "checkbox",
+          name: "ui_httpsredirect",
+          placeholder: helptext.stg_guihttpsredirect.placeholder,
+          tooltip: helptext.stg_guihttpsredirect.tooltip
+        }
+      ]
     },
-  ]},
-  {
-    name: 'bottom',
-    width: '100%',
-    label: false,
-    config:[
-      {
-        type: 'select',
-        name: 'kbdmap',
-        placeholder: helptext.stg_kbdmap.placeholder,
-        tooltip: helptext.stg_kbdmap.tooltip,
-        options: [
-          { label: '---', value: null }
-        ]
-      },
-      {
-        type: 'select',
-        name: 'timezone',
-        placeholder: helptext.stg_timezone.placeholder,
-        tooltip: helptext.stg_timezone.tooltip,
-        options: [
-          { label: '---', value: null }
-        ]
-      },
-      {
-        type: 'select',
-        name: 'sysloglevel',
-        placeholder: helptext.stg_sysloglevel.placeholder,
-        tooltip: helptext.stg_sysloglevel.tooltip,
-        options: []
-      },
-      {
-        type: 'input',
-        name: 'syslogserver',
-        placeholder: helptext.stg_syslogserver.placeholder,
-        tooltip: helptext.stg_syslogserver.tooltip,
-      },
-      {
-        type: 'checkbox',
-        name: 'crash_reporting',
-        placeholder: helptext.crash_reporting.placeholder,
-        tooltip: helptext.crash_reporting.tooltip
-      },
-      {
-        type: 'checkbox',
-        name: 'usage_collection',
-        placeholder: helptext.usage_collection.placeholder,
-        tooltip: helptext.usage_collection.tooltip
-      }
-    ]
-  }];
+    { name: "divider", divider: true },
+    {
+      name: helptext.stg_fieldset_loc,
+      label: true,
+      config: [
+        {
+          type: "combobox",
+          name: "language",
+          placeholder: helptext.stg_language.placeholder,
+          tooltip: helptext.stg_language.tooltip,
+          options: [],
+          width: '50%'
+        },
+        {
+          type: "select",
+          name: "kbdmap",
+          placeholder: helptext.stg_kbdmap.placeholder,
+          tooltip: helptext.stg_kbdmap.tooltip,
+          options: [{ label: "---", value: null }],
+          width: '50%'
+        },
+        {
+          type: "radio",
+          name: "language_sort",
+          placeholder: helptext.stg_language_sort_label,
+          options: [
+            {
+              label: helptext.stg_language_sort_name,
+              name: "language_name",
+              value: true
+            },
+            {
+              label: helptext.stg_language_sort_code,
+              name: "language_code",
+              value: false
+            }
+          ],
+          value: true,
+          width: '50%'
+        },
+        {
+          type: 'combobox',
+          name: 'timezone',
+          placeholder: helptext.stg_timezone.placeholder,
+          tooltip: helptext.stg_timezone.tooltip,
+          options: [{ label: "---", value: null }],
+          width: '50%'
+        },
+        {
+          type: 'select',
+          name: 'date_format',
+          placeholder: helptext.date_format.placeholder,
+          tooltip: helptext.date_format.tooltip,
+          options: [],
+          width: '48%',
+          isLoading: true
+        },
+        { type: 'paragraph', name: 'spacer', width: '2%' },
+        {
+          type: 'select',
+          name: 'time_format',
+          placeholder: helptext.time_format.placeholder,
+          tooltip: helptext.time_format.tooltip,
+          options: [],
+          width: '50%',
+          isLoading: true
+        }
+      ]
+    },
+    { name: "divider", divider: true },
+    {
+      name: helptext.stg_fieldset_other,
+      label: true,
+      config: [
+        {
+          type: "checkbox",
+          name: "crash_reporting",
+          placeholder: helptext.crash_reporting.placeholder,
+          tooltip: helptext.crash_reporting.tooltip
+        },
+        {
+          type: "checkbox",
+          name: "usage_collection",
+          placeholder: helptext.usage_collection.placeholder,
+          tooltip: helptext.usage_collection.tooltip
+        },
+      ]
+    },
+    { name: "divider", divider: true }
+  ];
 
   protected saveConfigFieldConf: FieldConfig[] = [
     {
@@ -267,13 +265,7 @@ export class GeneralComponent {
     }
   }];
 
-  private ui_address: any;
-  private ui_v6address: any;
   private ui_certificate: any;
-  private language_fc: any;
-  private kbdmap: any;
-  private timezone: any;
-  private sysloglevel: any;
 
   private addresses: any;
   private v6addresses: any;
@@ -282,17 +274,26 @@ export class GeneralComponent {
   private redirect: any;
   private guicertificate: any;
   private entityForm: any;
-  private dialogRef: any;
 
-  constructor(protected rest: RestService, protected router: Router,
-    protected language: LanguageService, protected ws: WebSocketService,
-    protected dialog: DialogService, protected loader: AppLoaderService,
-    public http: Http, protected snackBar: SnackbarService,  private mdDialog: MatDialog) {}
+  constructor(
+    protected rest: RestService,
+    protected router: Router,
+    protected language: LanguageService,
+    protected ws: WebSocketService,
+    protected dialog: DialogService,
+    protected loader: AppLoaderService,
+    public http: HttpClient,
+    protected storage: StorageService,
+    private sysGeneralService: SystemGeneralService,
+    public localeService: LocaleService,
+    public mdDialog: MatDialog
+  ) {}
 
   IPValidator(name: string, wildcard: string) {
     const self = this;
     return function validIPs(control: FormControl) {
-      const config = self.fieldConfig.find(c => c.name === name);
+      const config =
+        self.fieldSets.find(set => set.name === helptext.stg_fieldset_gui).config.find(c => c.name === name);
       
       const errors = control.value && control.value.length > 1 && _.indexOf(control.value, wildcard) !== -1
         ? { validIPs : true }
@@ -314,8 +315,10 @@ export class GeneralComponent {
     this.http_port = value['ui_port'];
     this.https_port = value['ui_httpsport'];
     this.redirect = value['ui_httpsredirect'];
-    value['ui_certificate'] = value['ui_certificate'].id.toString();
-    this.guicertificate = value['ui_certificate'];
+    if (value['ui_certificate'] && value['ui_certificate'].id) {
+      value['ui_certificate'] = value['ui_certificate'].id.toString();
+      this.guicertificate = value['ui_certificate'];
+    }
     this.addresses = value['ui_address'];
     this.v6addresses = value['ui_v6address'];
     return value;
@@ -335,8 +338,11 @@ export class GeneralComponent {
 
   afterInit(entityEdit: any) {
     this.entityForm = entityEdit;
-    this.ui_certificate =
-    _.find(this.fieldConfig, { 'name': 'ui_certificate' });
+
+    this.ui_certificate = this.fieldSets
+      .find(set => set.name === helptext.stg_fieldset_gui)
+      .config.find(config => config.name === "ui_certificate");
+
     entityEdit.ws.call('system.general.ui_certificate_choices')
       .subscribe((res) => {
         for (const id in res) {
@@ -344,86 +350,90 @@ export class GeneralComponent {
         }
       });
 
-    entityEdit.ws.call('notifier.choices', ['IPChoices', [true, false]])
-      .subscribe((res) => {
-        this.ui_address =
-          _.find(this.fieldConfig, { 'name': 'ui_address' });
-        this.ui_address.options.push({ label: '0.0.0.0', value: '0.0.0.0' });
-        res.forEach((item) => {
-          this.ui_address.options.push({ label: item[1], value: item[0] });
-        });
+    this.sysGeneralService
+      .ipChoicesv4()
+      .subscribe(ips => {
+        this.fieldSets
+          .find(set => set.name === helptext.stg_fieldset_gui)
+          .config.find(config => config.name === "ui_address").options = ips;
       });
 
-    entityEdit.ws.call('notifier.choices', ['IPChoices', [false, true]])
-      .subscribe((res) => {
-        this.ui_v6address =
-          _.find(this.fieldConfig, { 'name': 'ui_v6address' });
-        let wildcard_found = false;
-        res.forEach((item) => {
-          if (item[0] === '::' && !wildcard_found) {
-            wildcard_found = true;
-          }
-          this.ui_v6address.options.push({ label: item[1], value: item[0] });
-        });
-        if (!wildcard_found) {
-          this.ui_v6address.options.unshift({ label: '::', value: '::' });
-        }
+    this.sysGeneralService
+      .ipChoicesv6()
+      .subscribe(v6Ips => {
+        this.fieldSets
+          .find(set => set.name === helptext.stg_fieldset_gui)
+          .config.find(config => config.name === "ui_v6address").options = v6Ips;
       });
 
-    entityEdit.ws.call('notifier.gui_languages').subscribe((res) => {
-      this.languageList = res;
+
+
+    this.makeLanguageList();
+
+    this.sysGeneralService.kbdMapChoices().subscribe(mapChoices => {
+      this.fieldSets
+        .find(set => set.name === helptext.stg_fieldset_loc)
+        .config.find(config => config.name === "kbdmap").options = mapChoices;
+    });
+
+    this.sysGeneralService.timezoneChoices().subscribe(tzChoices => {
+      this.fieldSets
+        .find(set => set.name === helptext.stg_fieldset_loc)
+        .config.find(config => config.name === "timezone").options = tzChoices;
+    });
+
+    let dateOptions = this.localeService.getDateFormatOptions();
+    this.fieldSets
+        .find(set => set.name === helptext.stg_fieldset_loc)
+        .config.find(config => config.name === "date_format").options = dateOptions;
+
+    let timeOptions = this.localeService.getTimeFormatOptions();
+    this.fieldSets
+        .find(set => set.name === helptext.stg_fieldset_loc)
+        .config.find(config => config.name === "time_format").options = timeOptions;
+   
+    entityEdit.formGroup.controls['language_sort'].valueChanges.subscribe((res)=> {
+      res ? this.sortLanguagesByName = true : this.sortLanguagesByName = false;
       this.makeLanguageList();
     });
 
-    entityEdit.ws.call('notifier.choices', ['KBDMAP_CHOICES'])
-      .subscribe((res) => {
-        this.kbdmap = _.find(this.fieldConfig, { 'name': 'kbdmap' });
-        res.forEach((item) => {
-          this.kbdmap.options.push({ label: item[1], value: item[0] });
-        });
-      });
+    setTimeout(() => {
+      entityEdit.formGroup.controls['date_format'].setValue(this.localeService.getPreferredDateFormat());
+      _.find(this.fieldConfig, { name: 'date_format' })['isLoading'] = false;
+      entityEdit.formGroup.controls['time_format'].setValue(this.localeService.getPreferredTimeFormat());
+      _.find(this.fieldConfig, { name: 'time_format' })['isLoading'] = false;
+    }, 2000);
 
-    entityEdit.ws.call('notifier.choices', ['TimeZoneChoices'])
-      .subscribe((res) => {
-        this.timezone =
-          _.find(this.fieldConfig, { 'name': 'timezone' });
-        res.forEach((item) => {
-          this.timezone.options.push({ label: item[1], value: item[0] });
-        });
-      });
-
-    entityEdit.ws.call('notifier.choices', ['SYS_LOG_LEVEL'])
-      .subscribe((res) => {
-        this.sysloglevel =
-          _.find(this.fieldConfig, { 'name': 'sysloglevel' });
-        res.forEach((item) => {
-          this.sysloglevel.options.push({ label: item[1], value: item[0] });
-        });
-      });
-
-      entityEdit.formGroup.controls['language_sort'].valueChanges.subscribe((res)=> {
-        res ? this.sortLanguagesByName = true : this.sortLanguagesByName = false;
-        this.makeLanguageList();
-      })
+    entityEdit.formGroup.controls['language'].valueChanges.subscribe((res) => {
+      this.languageKey = this.getKeyByValue(this.languageList, res);
+      if (this.languageList[res]) {
+        entityEdit.formGroup.controls['language'].setValue(`${this.languageList[res]}`);
+      }
+    });
   }
   
   makeLanguageList() {
-    let sort;
-    this.sortLanguagesByName ? sort = 'label' : sort = 'value';
-    this.language_fc = _.find(this.fieldConfig, { 'name': 'language' });
-    const options = [];
-    this.languageList.forEach((item) => {
-      if (sort === 'label') {
-        options.push({ label: item[1] + ' (' + item[0] + ')', value: item[0] });
-      } else {
-        options.push({ label: item[0] + ' (' + item[1] + ')', value: item[0] });
-      }
+    this.sysGeneralService.languageChoices().subscribe((res) => {
+      this.languageList = res
+      let options = 
+        Object.keys(this.languageList || {}).map(key => ({
+          label: this.sortLanguagesByName
+            ? `${this.languageList[key]} (${key})`
+            : `${key} (${this.languageList[key]})`,
+          value: key
+        }));
+      this.fieldSets
+        .find(set => set.name === helptext.stg_fieldset_loc)
+        .config.find(config => config.name === "language").options = _.sortBy(
+        options,
+        this.sortLanguagesByName ? "label" : "value"
+      );
     });
-    this.language_fc.options = _.sortBy(options, [sort]);
   }
    
   beforeSubmit(value) {
     delete value.language_sort;
+    value.language = this.languageKey;
   }
 
   afterSubmit(value) {
@@ -477,15 +487,19 @@ export class GeneralComponent {
 
   saveConfigSubmit(entityDialog) {
     parent = entityDialog.parent;
+    entityDialog.loader.open();
     entityDialog.ws.call('system.info', []).subscribe((res) => {
       let fileName = "";
+      let mimetype;
       if (res) {
         let hostname = res.hostname.split('.')[0];
         let date = entityDialog.datePipe.transform(new Date(),"yyyyMMddHHmmss");
         fileName = hostname + '-' + res.version + '-' + date;
         if (entityDialog.formValue['secretseed'] || entityDialog.formValue['pool_keys']) {
+          mimetype = 'application/x-tar';
           fileName += '.tar';
         } else {
+          mimetype = 'application/x-sqlite3';
           fileName += '.db';
         }
       }
@@ -494,24 +508,29 @@ export class GeneralComponent {
                                                                'pool_keys': entityDialog.formValue['pool_keys'] }],
                                                                fileName])
         .subscribe(
-          (res) => {
-            parent['snackBar'].open(helptext.snackbar_download_success.title, helptext.snackbar_download_success.action, {
-              duration: 5000
+          (download) => {
+            const url = download[1];
+            entityDialog.parent.storage.streamDownloadFile(entityDialog.parent.http, url, fileName, mimetype).subscribe(file => {
+              entityDialog.loader.close();
+              entityDialog.dialogRef.close();
+              entityDialog.parent.storage.downloadBlob(file, fileName);
+            }, err => {
+              entityDialog.loader.close();
+              entityDialog.dialogRef.close();
+              entityDialog.parent.dialog.errorReport(helptext.config_download.failed_title, helptext.config_download.failed_message, err);
             });
-            if (window.navigator.userAgent.search("Firefox")>0) {
-              window.open(res[1]);
-          }
-            else {
-              window.location.href = res[1];
-            }
-            entityDialog.dialogRef.close();
           },
           (err) => {
-            parent['snackBar'].open(T("Check the network connection."), T("Failed") , {
-              duration: 5000
-            });
+            entityDialog.loader.close();
+            entityDialog.dialogRef.close();
+            new EntityUtils().handleWSError(entityDialog, err, entityDialog.dialog);
           }
         );
+    },
+    (err) => {
+      entityDialog.loader.close();
+      entityDialog.dialogRef.close();
+      new EntityUtils().handleWSError(entityDialog, err, entityDialog.dialog);
     });
   }
 
@@ -526,24 +545,22 @@ export class GeneralComponent {
     const parent = entityDialog.conf.fieldConfig[0].parent;
     const formData: FormData = new FormData();
 
-    parent.loader.open();
-    formData.append('data', JSON.stringify({
-      "method": "config.upload",
-      "params": []
-    }));
+    const dialogRef = parent.mdDialog.open(EntityJobComponent, 
+      {data: {"title":helptext.config_upload.title,"CloseOnClickOutside":false}});
+        dialogRef.componentInstance.setDescription(helptext.config_upload.message);
+        formData.append('data', JSON.stringify({
+          "method": "config.upload",
+          "params": []
+        }));
     formData.append('file', parent.subs.file);
-
-    parent.http.post(parent.subs.apiEndPoint, formData).subscribe(
-      (data) => {
-        parent.loader.close();
-        entityDialog.dialogRef.close();
-        parent.router.navigate(['/others/reboot']);
-      },
-      (err) => {
-        parent.loader.close();
-        this.dialog.errorReport(err.status, err.statusText, err._body);
-      }
-    );
+    dialogRef.componentInstance.wspost(parent.subs.apiEndPoint, formData);
+    dialogRef.componentInstance.success.subscribe(res=>{
+      dialogRef.close();
+      parent.router.navigate(['/others/reboot']);
+    })
+    dialogRef.componentInstance.failure.subscribe((res) => {
+      dialogRef.componentInstance.setDescription(res.error);
+    });
   }
 
   resetConfigSubmit(entityDialog) {
@@ -552,10 +569,14 @@ export class GeneralComponent {
   }
 
   public customSubmit(body) {
+    this.localeService.saveDateTimeFormat(body.date_format, body.time_format);
+    delete body.date_format;
+    delete body.time_format;
     this.loader.open();
     return this.ws.call('system.general.update', [body]).subscribe(() => {
       this.loader.close();
-      this.snackBar.open(T("Settings saved."), T('close'), { duration: 5000 });
+      this.entityForm.success = true;
+      this.entityForm.formGroup.markAsPristine();
       this.afterSubmit(body);
     }, (res) => {
       this.loader.close();

@@ -2,6 +2,11 @@ import { Validators } from "@angular/forms";
 import { T } from "app/translate-marker";
 
 export const helptext_system_cloudcredentials = {
+  fieldset_basic: T('Name and Provider'),
+  fieldset_authentication: T('Authentication'),
+  fieldset_authentication_advanced: T('Authentication Advanced Options'),
+  fieldset_endpoint_advanced_options: T('Endpoint Advanced Options'),
+
   add_tooltip: T('Add Cloud Credential'),
 
   name: {
@@ -33,7 +38,8 @@ export const helptext_system_cloudcredentials = {
       'Amazon Web Services Key ID. This is found on \
  <a href="https://aws.amazon.com/" target="_blank">Amazon AWS</a> by \
  going through <i>My account -> Security Credentials -> Access Keys \
- (Access Key ID and Secret Access Key)</i>.'
+ (Access Key ID and Secret Access Key)</i>. Must be alphanumeric and \
+ between 5 and 20 characters.'
     )
   },
 
@@ -42,7 +48,8 @@ export const helptext_system_cloudcredentials = {
     tooltip: T(
       "Amazon Web Services password. If the Secret Access Key cannot be \
  found or remembered, go to <i>My Account -> Security Credentials -> \
- Access Keys</i> and create a new key pair."
+ Access Keys</i> and create a new key pair. Must be alphanumeric and \
+ between 8 and 40 characters."
     )
   },
 
@@ -89,30 +96,22 @@ export const helptext_system_cloudcredentials = {
   },
 
   account_b2: {
-    placeholder: T("Account ID or Application Key ID"),
-    tooltip: T(
-      'Alphanumeric \
- <a href="https://www.backblaze.com/b2/cloud-storage.html" \
- target="_blank">Backblaze B2</a> ID. Find an Account ID or \
- applicationKeyID by logging in to the account, clicking <i>Buckets</i>, \
- and clicking <i>Show Account ID and Application Key</i>. Enter the \
- <i>Account ID</i> to associate the entire account or generate a new \
- <i>Application Key</i>. The <i>keyID</i> replaces the Account ID and \
- the key string is used in place of the <i>Master Application Key</i>.'
-    )
+    placeholder: T("Key ID"),
+    tooltip: T('Alphanumeric \
+<a href="https://www.backblaze.com/b2/cloud-storage.html" \
+target="_blank">Backblaze B2</a> Application Key ID. To \
+generate a new application key, log in to the Backblaze account, \
+go to the <i>App Keys</i> page, and add a new application key. \
+Copy the application <i>keyID</i> string to this field.'),
   },
 
   key_b2: {
-    placeholder: T("Master Application Key or Application Key"),
-    tooltip: T(
-      'Backblaze B2 Application Key. Log in to the B2 account and \
- generate a key on the Buckets page. \
- <a href="https://help.backblaze.com/hc/en-us/articles/224991568-Where-can-I-find-my-Account-ID-and-Application-Key-" \
- target="_blank">Generating a new Master Application Key</a> invalidates \
- the existing Master key and requires updating this field. Using a \
- limited permissions Application Key also requires changing the \
- <i>Account ID</i> to the new <i>keyID</i>.'
-    )
+    placeholder: T("Application Key"),
+    tooltip: T('<a href="https://www.backblaze.com/b2/cloud-storage.html" \
+target="_blank">Backblaze B2</a> Application Key. To generate \
+a new application key, log in to the Backblaze account, go to the \
+<i>App Keys</i> page, and add a new application key. Copy the \
+<i>applicationKey</i> string to this field.'),
   },
 
   token_box: {
@@ -245,27 +244,124 @@ export const helptext_system_cloudcredentials = {
     tooltip: T(
       'Microsoft Onedrive \
  <a href="https://docs.microsoft.com/en-us/onedrive/developer/rest-api/getting-started/authentication" \
- target="_blank">Access Token</a>.'
+ target="_blank">Access Token</a>. Log in to the Microsoft account to \
+ add an access token.'
     )
+  },
+
+  drives_onedrive: {
+    placeholder: T("Drives List"),
+    tooltip: T('Drives and IDs registered to the Microsoft account. \
+ Selecting a drive also fills the <i>Drive ID</i> field.')
   },
 
   drive_type_onedrive: {
     placeholder: T("Drive Account Type"),
     tooltip: T(
-      'Choose the account type: <i>PERSONAL</i>, <i>BUSINESS</i>, or \
- <a href="https://products.office.com/en-us/sharepoint/collaboration"\
- target="_blank">SharePoint</a> <i>DOCUMENT_LIBRARY</i>.'
+      'Type of Microsoft acount. Logging in to a Microsoft account \
+ automatically chooses the correct account type.'
     )
   },
 
   drive_id_onedrive: {
     placeholder: T("Drive ID"),
     tooltip: T(
-      'Unique drive identifier. Log in to the \
- <a href="https://onedrive.live.com" target="_blank">OneDrive account</a> \
- and copy the string that appears in the browser address bar after \
- <i>cid=</i>. Example: https://onedrive.live.com/?id=root&cid=<i>12A34567B89C10D1</i>.'
+      'Unique drive identifier. Log in to a Microsoft account and choose \
+ a drive from the <i>Drives List</i> drop-down to add a valid ID.'
     )
+  },
+
+  user_openstack_swift: {
+    placeholder: T('User Name'),
+    tooltip: T('Openstack user name for login. This is the OS_USERNAME from an \
+<a href="https://rclone.org/swift/#configuration-from-an-openstack-credentials-file" \
+target="_blank">OpenStack credentials file</a>.'),
+  },
+
+  key_openstack_swift: {
+    placeholder: T('API Key or Password'),
+    tooltip: T('Openstack API key or password. This is the OS_PASSWORD from an \
+<a href="https://rclone.org/swift/#configuration-from-an-openstack-credentials-file" \
+target="_blank">OpenStack credentials file</a>.')
+  },
+
+  auth_openstack_swift: {
+    placeholder: T('Authentication URL'),
+    tooltip: T('Authentication URL for the server. This is the OS_AUTH_URL from an \
+<a href="https://rclone.org/swift/#configuration-from-an-openstack-credentials-file" \
+target="_blank">OpenStack credentials file</a>.')
+  },
+
+  user_id_openstack_swift: {
+    placeholder: T('User ID'),
+    tooltip: T('User ID to log in - optional - most swift systems use user and leave this blank \
+<a href="https://rclone.org/swift/#standard-options" target="_blank">(rclone documentation)</a>.')
+  },
+
+  domain_openstack_swift: {
+    placeholder: T('User Domain'),
+    tooltip: T('User domain - optional \
+<a href="https://rclone.org/swift/#standard-options" target="_blank">(rclone documentation)</a>.')
+  },
+
+  tenant_openstack_swift: {
+    placeholder: T('Tenant Name'),
+    tooltip: T('This is the OS_TENANT_NAME from an \
+<a href="https://rclone.org/swift/#configuration-from-an-openstack-credentials-file" \
+target="_blank">OpenStack credentials file</a>.')
+  },
+
+  tenant_id_openstack_swift: {
+    placeholder: T('Tenant ID'),
+    tooltip: T('Tenant ID - optional for v1 auth, this or tenant required otherwise \
+<a href="https://rclone.org/swift/#standard-options" target="_blank">(rclone documentation)</a>.')
+  },
+
+  tenant_domain_openstack_swift: {
+    placeholder: T('Tenant Domain'),
+    tooltip: T('Tenant domain - optional \
+<a href="https://rclone.org/swift/#standard-options" target="_blank">(rclone documentation)</a>.')
+  },
+
+  region_openstack_swift: {
+    placeholder: T('Region Name'),
+    tooltip: T('Region name - optional \
+<a href="https://rclone.org/swift/#standard-options" target="_blank">(rclone documentation)</a>.')
+  },
+
+  storage_url_openstack_swift: {
+    placeholder: T('Storage URL'),
+    tooltip: T('Storage URL - optional \
+<a href="https://rclone.org/swift/#standard-options" target="_blank">(rclone documentation)</a>.')
+  },
+
+  auth_token_openstack_swift: {
+    placeholder: T('Auth Token'),
+    tooltip: T('Auth Token from alternate authentication - optional \
+<a href="https://rclone.org/swift/#standard-options" target="_blank">(rclone documentation)</a>.')
+  },
+
+  application_credential_id_openstack_swift: {
+    placeholder: T('Application Credential ID'),
+    tooltip: T('<a href="https://rclone.org/swift/#standard-options" target="_blank">(rclone documentation)</a>.')
+  },
+  application_credential_name_openstack_swift: {
+    placeholder: T('Application Credential Name'),
+    tooltip: T('<a href="https://rclone.org/swift/#standard-options" target="_blank">(rclone documentation)</a>.')
+  },
+  application_credential_secret_openstack_swift: {
+    placeholder: T('Application Credential Secret'),
+    tooltip: T('<a href="https://rclone.org/swift/#standard-options" target="_blank">(rclone documentation)</a>.')
+  },
+  auth_version_openstack_swift: {
+    placeholder: T('AuthVersion'),
+    tooltip: T('AuthVersion - optional - set to (1,2,3) if your auth URL has no version \
+<a href="https://rclone.org/swift/#standard-options" target="_blank">(rclone documentation)</a>.')
+  },
+  endpoint_type_openstack_swift: {
+    placeholder: T('Endpoint Type'),
+    tooltip: T('Endpoint type to choose from the service catalogue. <i>Public</i> is recommended, see the \
+<a href="https://rclone.org/swift/#standard-options" target="_blank">rclone documentation</a>.')
   },
 
   token_pcloud: {
@@ -302,8 +398,8 @@ export const helptext_system_cloudcredentials = {
 
   private_key_sftp: {
     placeholder: T("Private Key ID"),
-    tooltip: T('Import the private key from an existing SSH keypair. \
- Choose the name of the SSH keypair to use for this connection.')
+    tooltip: T('Import the private key from an existing SSH keypair or \
+ select <i>Generate New</i> to create a new SSH key for this credential.')
   },
 
   url_webdav: {

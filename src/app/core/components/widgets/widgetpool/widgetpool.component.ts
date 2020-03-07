@@ -78,19 +78,19 @@ export interface Disk {
 }
 
 export interface VolumeData {
-  avail:number;
-  id:number;
-  is_decrypted:boolean;
-  is_upgraded:boolean;
-  mountpoint:string;
-  name:string;
-  status:string;
-  used:number;
-  used_pct:string;
-  vol_encrypt:number;
-  vol_encryptkey:string;
-  vol_guid:string;
-  vol_name:string;
+  avail?:number;
+  id?:number;
+  is_decrypted?:boolean;
+  is_upgraded?:boolean;
+  mountpoint?:string;
+  name?:string;
+  status?:string;
+  used?:number;
+  used_pct?:string;
+  vol_encrypt?:number;
+  vol_encryptkey?:string;
+  vol_guid?:string;
+  vol_name?:string;
 }
 
 @Component({
@@ -129,6 +129,50 @@ export class WidgetPoolComponent extends WidgetComponent implements OnInit, Afte
   }
 
   path: Slide[] = [];
+
+  private _totalDisks: string = '';
+  get totalDisks(){
+    if(this.poolState && this.poolState.topology){
+      let total = 0;
+      this.poolState.topology.data.forEach((item) => {
+        if(item.type == "DISK"){
+          total++
+        } else {
+          total += item.children.length;
+        }
+      });
+      return total.toString();
+    } else {
+      return '';
+    }
+  }
+
+  private _unhealthyDisks: string[];
+  get unhealthyDisks(){
+    if(this.poolState && this.poolState.topology){
+      let unhealthy = []; // Disks with errors
+      this.poolState.topology.data.forEach((item) => {
+        if(item.type == "DISK"){
+          let diskErrors = item.read_errors + item.write_errors + item.checksum_errors;
+
+          if(diskErrors > 0) { 
+            unhealthy.push(item.disk);
+          }
+        } else {
+          item.children.forEach((device) => {
+            let diskErrors = device.read_errors + device.write_errors + device.checksum_errors;
+
+            if(diskErrors > 0) { 
+              unhealthy.push(device.disk);
+            }
+          });
+        }
+      });
+      return { totalErrors: unhealthy.length/*errors.toString()*/, disks: unhealthy};
+    } else {
+      return {totalErrors: "Unknown", disks: []};
+    }
+  }
 
   public title: string = this.path.length > 0 && this.poolState && this.currentSlide !== "0" ? this.poolState.name : "Pool";
   public voldataavail = false;
@@ -169,16 +213,6 @@ export class WidgetPoolComponent extends WidgetComponent implements OnInit, Afte
   }
 
   ngOnInit(){
-
-    this.core.emit({name:"NetInfoRequest"});
-    
-    //Get Network info and determine Primary interface
-    this.core.register({observerClass:this,eventName:"NetInfo"}).subscribe((evt:CoreEvent) => {
-    });
-
-    this.core.register({observerClass:this, eventName:"NicInfo"}).subscribe((evt:CoreEvent) => {
-    });
-
   }
 
   ngAfterContentInit(){
@@ -195,7 +229,7 @@ export class WidgetPoolComponent extends WidgetComponent implements OnInit, Afte
     }
 
     this.path = [
-      { name: "overview",template: this.overview},
+      { name: T("overview"),template: this.overview},
       { name: "empty", template: this.empty},
       { name: "empty", template: this.empty},
       { name: "empty", template: this.empty}
@@ -252,8 +286,8 @@ export class WidgetPoolComponent extends WidgetComponent implements OnInit, Afte
       data: [availableValue]
     };
 
-    let percentage = this.volumeData.used_pct.split("%");
-    this.core.emit({name:"PoolDisksRequest",data:[this.volumeData.id]});
+    let percentage = this.volumeData.used_pct ? this.volumeData.used_pct.split("%") : '';
+    this.core.emit({name:"PoolDisksRequest",data:[this.poolState.id]});
 
     this.displayValue = (<any>window).filesize(this.volumeData.avail, {standard: "iec"});
     if (this.displayValue.slice(-2) === ' B') {
@@ -344,7 +378,6 @@ export class WidgetPoolComponent extends WidgetComponent implements OnInit, Afte
     
     this.currentSlide = value.toString();
     this.title = this.currentSlide == "0" ? "Pool" : this.poolState.name;
-    //console.log(this.path[this.currentSlideIndex].name);
     
   }
 
@@ -380,11 +413,11 @@ export class WidgetPoolComponent extends WidgetComponent implements OnInit, Afte
     }
 
     if(this.poolHealth.errors.length > 0){
-      this.poolHealth.level = "error"
+      this.poolHealth.level = T("error");
     } else if(this.poolHealth.warnings.length > 0){
-      this.poolHealth.level = "warn"
+      this.poolHealth.level = T("warn");
     } else {
-      this.poolHealth.level = "safe"
+      this.poolHealth.level = T("safe");
     }
 
     if (condition === 'locked') {

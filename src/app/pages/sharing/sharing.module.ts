@@ -4,6 +4,7 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MaterialModule } from '../../appMaterial.module';
 import { TranslateModule } from '@ngx-translate/core';
 import { FlexLayoutModule } from '@angular/flex-layout';
+import { CommonDirectivesModule } from '../../directives/common/common-directives.module';
 
 import { JailService } from '../../services';
 import { EntityModule } from '../common/entity/entity.module';
@@ -19,6 +20,7 @@ import { WebdavListComponent } from './webdav/webdav-list/';
 import { WebdavFormComponent } from './webdav/webdav-form/';
 import { SMBListComponent } from './smb/smb-list/';
 import { SMBFormComponent } from './smb/smb-form/';
+import { SMBAclComponent } from './smb/smb-acl/smb-acl.component';
 import { ISCSI } from './iscsi/iscsi.component';
 import { IscsiWizardComponent } from './iscsi/iscsi-wizard/iscsi-wizard.component';
 import { GlobalconfigurationComponent } from './iscsi/globalconfiguration/';
@@ -47,7 +49,8 @@ import { FibreChannelPortComponent } from './iscsi/fibre-channel-ports/fibre-cha
     EntityModule,
     MaterialModule,
     TranslateModule,
-    FlexLayoutModule
+    FlexLayoutModule,
+    CommonDirectivesModule
   ],
   declarations : [
     AFPListComponent,
@@ -58,6 +61,7 @@ import { FibreChannelPortComponent } from './iscsi/fibre-channel-ports/fibre-cha
     WebdavFormComponent,
     SMBListComponent,
     SMBFormComponent,
+    SMBAclComponent,
     ISCSI,
     IscsiWizardComponent,
     GlobalconfigurationComponent,

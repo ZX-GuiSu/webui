@@ -1,7 +1,7 @@
 
 
 import {Injectable} from '@angular/core';
-import {Http} from '@angular/http';
+import {HttpClient} from '@angular/common/http';
 import {Observable, Subject, Subscription} from 'rxjs/Rx';
 
 import {EntityUtils} from '../pages/common/entity/utils'
@@ -18,5 +18,20 @@ export class VmService {
 
   getVM(vm: string) {
     return this.ws.call('vm.query', [[[ "name", "=",  vm ]], {"get": true}])
+  }
+
+  getBootloaderOptions() {
+    return [
+      ['UEFI', 'UEFI'],
+      ['UEFI_CSM', 'UEFI-CSM'],
+      ['GRUB', 'Grub']
+    ]
+  }
+
+  getNICTypes() {
+    return [
+      ['E1000', 'Intel e82585 (e1000)'],
+      ['VIRTIO', 'VirtIO']
+    ]
   }
 }

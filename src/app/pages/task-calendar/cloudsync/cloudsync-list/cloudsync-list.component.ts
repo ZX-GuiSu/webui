@@ -1,13 +1,17 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
+
 import { InputTableConf } from 'app/pages/common/entity/entity-table/entity-table.component';
 import * as cronParser from 'cron-parser';
 import { Moment } from 'moment';
 import { DialogService, JobService, TaskService, WebSocketService } from '../../../../services';
+import { DialogFormConfiguration } from '../../../common/entity/entity-dialog/dialog-form-configuration.interface';
 import { T } from '../../../../translate-marker';
 import { EntityUtils } from '../../../common/entity/utils';
 import { TaskScheduleListComponent } from '../../components/task-schedule-list/task-schedule-list.component';
+import globalHelptext from '../../../../helptext/global-helptext';
+import helptext from '../../../../helptext/task-calendar/cloudsync/cloudsync-form';
 
 @Component({
   selector: 'app-cloudsync-list',
@@ -93,8 +97,8 @@ export class CloudsyncListComponent implements InputTableConf {
 
   getActions(parentrow) {
     return [{
-      id: parentrow.description,
-      actionName: 'run_now',
+      actionName: parentrow.description,
+      id: 'run_now',
       label: T("Run Now"),
       icon: 'play_arrow',
       onClick: (row) => {
@@ -103,9 +107,7 @@ export class CloudsyncListComponent implements InputTableConf {
             row.state = 'RUNNING';
             this.ws.call('cloudsync.sync', [row.id]).subscribe(
               (res) => {
-                this.translateService.get("close").subscribe((close) => {
-                  this.entityList.snackBar.open(T('Cloud sync has started.'), close, { duration: 5000 });
-                });
+                this.dialog.Info(T('Task Started'), T('Cloud sync <i>') + row.description + T('</i> has started.'), '500px', 'info', true);
                 this.job.getJobStatus(res).subscribe((task) => {
                   row.state = task.state;
                   row.job = task;
@@ -118,8 +120,8 @@ export class CloudsyncListComponent implements InputTableConf {
         });
       },
     }, {
-      id: parentrow.description,
-      actionName: 'stop',
+      actionName: parentrow.description,
+      id: 'stop',
       label: T("Stop"),
       icon: 'stop',
       onClick: (row) => {
@@ -127,9 +129,7 @@ export class CloudsyncListComponent implements InputTableConf {
           if (res) {
             this.ws.call('cloudsync.abort', [row.id]).subscribe(
               (wsRes) => {
-                this.translateService.get("close").subscribe((close) => {
-                  this.entityList.snackBar.open(T('Cloud sync stopped.'), close, { duration: 5000 });
-                });
+                  this.dialog.Info(T('Task Stopped'), T('Cloud sync <i>') + row.description + T('</i> stopped.'), '500px', 'info', true);
               },
               (wsErr) => {
                 new EntityUtils().handleWSError(this.entityList, wsErr);
@@ -138,8 +138,113 @@ export class CloudsyncListComponent implements InputTableConf {
         });
       },
     }, {
-      actionName: "edit",
-      id: parentrow.description,
+      actionName: parentrow.description,
+      id: 'dryrun',
+      label: helptext.action_button_dry_run,
+      icon: 'sync',
+      onClick: (row) => {
+        console.log('dry run');
+        this.dialog.confirm(helptext.dry_run_title, helptext.dry_run_dialog, true).subscribe((dialog_res) => {
+          if (dialog_res) {
+            this.ws.call('cloudsync.sync', [row.id, {"dry_run": true}]).subscribe(
+              (res) => {
+                this.dialog.Info(T('Task Started'), T('Cloud sync <i>') + row.description + T('</i> has started.'), '500px', 'info', true);
+                this.job.getJobStatus(res).subscribe((task) => {
+                  row.state = task.state;
+                  row.job = task;
+                });
+              },
+              (err) => {
+                new EntityUtils().handleWSError(this.entityList, err);
+              })
+          }
+        });
+      }
+    }, {
+      actionName: parentrow.description,
+      id: 'restore',
+      label: T('Restore'),
+      icon: 'restore',
+      onClick: (row) => {
+        console.log('restore');
+        const parent = this;
+        const conf: DialogFormConfiguration = {
+          title: T('Restore Cloud Sync Task'),
+          fieldConfig: [
+            {
+              type: 'input',
+              name: 'description',
+              placeholder: helptext.description_placeholder,
+              tooltip: helptext.description_tooltip,
+              validation: helptext.description_validation,
+              required: true,
+            },
+            {
+              type: 'select',
+              name: 'transfer_mode',
+              placeholder: helptext.transfer_mode_placeholder,
+              validation: helptext.transfer_mode_validation,
+              required: true,
+              options: [
+                { label: 'SYNC', value: 'SYNC' },
+                { label: 'COPY', value: 'COPY' },
+              ],
+              value: 'COPY',
+            },
+            {
+              type: 'paragraph',
+              name: 'transfer_mode_warning',
+              paraText: helptext.transfer_mode_warning_copy,
+              isLargeText: true,
+              paragraphIcon: 'add_to_photos'
+            },
+            {
+              type: 'explorer',
+              explorerType: 'directory',
+              name: 'path',
+              placeholder: helptext.path_placeholder,
+              tooltip: helptext.path_tooltip,
+              validation: helptext.path_validation,
+              initial: '/mnt',
+              required: true,
+            }
+          ],
+          saveButtonText: 'Restore',
+          afterInit: function(entityDialog) {
+            entityDialog.formGroup.get('transfer_mode').valueChanges.subscribe(mode => {
+              const paragraph = conf.fieldConfig.find(config => config.name === 'transfer_mode_warning');
+              switch (mode) {
+                case 'SYNC':
+                  paragraph.paraText = helptext.transfer_mode_warning_sync;
+                  paragraph.paragraphIcon = 'sync';
+                  break;
+                default:
+                  paragraph.paraText = helptext.transfer_mode_warning_copy;
+                  paragraph.paragraphIcon = 'add_to_photos';
+              }
+            });
+          },
+          customSubmit: function (entityDialog) {
+            parent.entityList.loader.open();
+            parent.ws.call('cloudsync.restore', [row.id, entityDialog.formValue]).subscribe(
+              (res) => {
+                entityDialog.dialogRef.close(true);
+                parent.entityList.loaderOpen = true;
+                parent.entityList.needRefreshTable = true;
+                parent.entityList.getData();
+              },
+              (err) => {
+                parent.entityList.loader.close(true);
+                new EntityUtils().handleWSError(entityDialog, err, parent.dialog);
+              }
+            )
+          }
+        }
+        this.dialog.dialogFormWide(conf);
+      }
+    }, {
+      id: "edit",
+      actionName: parentrow.description,
       icon: 'edit',
       label: T("Edit"),
       onClick: (row) => {
@@ -147,8 +252,8 @@ export class CloudsyncListComponent implements InputTableConf {
         this.router.navigate(this.route_edit);
       },
     }, {
-      id: parentrow.description,
-      actionName: "delete",
+      actionName: parentrow.description,
+      id: "delete",
       label: T("Delete"),
       icon: 'delete',
       onClick: (row) => {
@@ -158,15 +263,23 @@ export class CloudsyncListComponent implements InputTableConf {
   }
 
   isActionVisible(actionId: string, row: any) {
-    if (actionId === 'start' && row.job && row.job.state === 'RUNNING') {
+    if (actionId === 'run_now' && row.job && row.job.state === 'RUNNING') {
       return false;
-    } else if (actionId === 'stop' && row.job && row.job.state !== 'RUNNING') {
+    } else if (actionId === 'stop' && (row.job? (row.job && row.job.state !== 'RUNNING') : true)) {
       return false;
     }
     return true;
   }
 
   stateButton(row) {
-    this.job.showLogs(row.job.id);
+    if (row.job) {
+      if (row.state === 'RUNNING') {
+        this.entityList.runningStateButton(row.job.id);
+      } else {
+        this.job.showLogs(row.job.id);
+      }
+    } else {
+      this.dialog.Info(globalHelptext.noLogDilaog.title, globalHelptext.noLogDilaog.message);
+    }
   }
 }

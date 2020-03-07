@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { MatDialog } from '@angular/material';
+import { MatDialog } from '@angular/material/dialog';
 import * as _ from 'lodash';
 import { EntityJobComponent } from 'app/pages//common/entity/entity-job/entity-job.component';
 import { FieldConfig } from 'app/pages/common/entity/entity-form/models/field-config.interface';
@@ -19,7 +19,6 @@ export class FnSupportComponent {
   public screenshot: any;
   public password_fc: any;
   public username_fc: any;
-  public payload = {};
   public subs: any;
   public saveSubmitText = helptext.submitBtn;
   public fieldConfig: FieldConfig[] = []
@@ -73,7 +72,8 @@ export class FnSupportComponent {
           options:[
             {label: 'Bug', value: 'BUG'},
             {label: 'Feature', value: 'FEATURE'}
-          ]
+          ],
+          value: 'BUG'
         },
         {
           type : 'select',
@@ -105,6 +105,7 @@ export class FnSupportComponent {
           name : 'attach_debug',
           placeholder : helptext.attach_debug.placeholder,
           tooltip : helptext.attach_debug.tooltip,
+          value: false
         },
         {
           type : 'input',
@@ -187,20 +188,23 @@ export class FnSupportComponent {
   }
 
   customSubmit(entityEdit): void {
-    this.payload['username'] = entityEdit.username;
-    this.payload['password'] = entityEdit.password;
-    this.payload['category'] = entityEdit.category;
-    this.payload['attach_debug'] = entityEdit.attach_debug;
-    this.payload['title'] = entityEdit.title;
-    this.payload['body'] = entityEdit.body;
-    this.payload['type'] = entityEdit.type;
-    this.openDialog();
+    let payload = {};
+    payload['username'] = entityEdit.username;
+    payload['password'] = entityEdit.password;
+    payload['category'] = entityEdit.category;
+    payload['title'] = entityEdit.title;
+    payload['body'] = entityEdit.body;
+    payload['type'] = entityEdit.type;
+    if (entityEdit.attach_debug) {
+      payload['attach_debug'] = entityEdit.attach_debug;     
+    }
+    this.openDialog(payload);
   };
 
-  openDialog() {
+  openDialog(payload) {
     const dialogRef = this.dialog.open(EntityJobComponent, {data: {"title":"Ticket","CloseOnClickOutside":true}});
     let url;
-    dialogRef.componentInstance.setCall('support.new_ticket', [this.payload]);
+    dialogRef.componentInstance.setCall('support.new_ticket', [payload]);
     dialogRef.componentInstance.submit();
     dialogRef.componentInstance.success.subscribe(res=>{
       if (res.result) {
@@ -211,7 +215,7 @@ export class FnSupportComponent {
           const formData: FormData = new FormData();
           formData.append('data', JSON.stringify({
             "method": "support.attach_ticket",
-            "params": [{'ticket': (res.result.ticket), 'filename': item.file.name, 'username': this.payload['username'], 'password': this.payload['password'] }]
+            "params": [{'ticket': (res.result.ticket), 'filename': item.file.name, 'username': payload['username'], 'password': payload['password'] }]
           }));
           formData.append('file', item.file, item.apiEndPoint);
           dialogRef.componentInstance.wspost(item.apiEndPoint, formData);
@@ -235,6 +239,8 @@ export class FnSupportComponent {
 
   resetForm () {
     this.entityEdit.formGroup.reset();
+    this.entityEdit.formGroup.controls['type'].setValue('BUG');
+    this.subs = [];
   };
 
 

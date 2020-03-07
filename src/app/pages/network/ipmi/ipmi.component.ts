@@ -2,16 +2,18 @@ import { ApplicationRef, Component, Injector, Input, ViewChild, ElementRef} from
 import { Router } from '@angular/router';
 import * as _ from 'lodash';
 import { Subscription } from 'rxjs';
-import {  DialogService, RestService, TooltipsService, WebSocketService, NetworkService, SnackbarService } from '../../../services/';
+import {  DialogService, RestService, TooltipsService, WebSocketService, 
+  NetworkService, SnackbarService } from '../../../services/';
 import { FormGroup } from '@angular/forms';
-
+import { regexValidator } from '../../common/entity/entity-form/validators/regex-validation';
+import { ipv4Validator } from '../../common/entity/entity-form/validators/ip-validation';
 import { FieldConfig } from '../../common/entity/entity-form/models/field-config.interface';
 import helptext from '../../../helptext/network/ipmi/ipmi';
 import globalHelptext from '../../../helptext/global-helptext';
 import { AppLoaderService } from '../../../services/app-loader/app-loader.service';
 import { EntityUtils } from '../../common/entity/utils';
+import { FieldSet } from 'app/pages/common/entity/entity-form/models/fieldset.interface';
 import { T } from '../../../translate-marker';
-
 
 @Component({
   selector : 'app-ipmi',
@@ -21,9 +23,9 @@ import { T } from '../../../translate-marker';
     diameter='25'
     class="form-select-spinner"
     id="ipmi_controller-spinner"
-    *ngIf="!currentControllerLabel">
+    *ngIf="!currentControllerLabel && is_ha">
   </mat-spinner>
-  <mat-select *ngIf="is_ha" #storageController name="controller" placeholder="Controller" (selectionChange)="loadData()" [(ngModel)]="remoteController">
+  <mat-select *ngIf="is_ha" #storageController name="controller" placeholder="Controller" (selectionChange)="loadData()" [(ngModel)]="remoteController" [style.margin-top.px]="15">
 
     <mat-option [value]="false">Active: {{controllerName}} {{currentControllerLabel}}</mat-option>
     <mat-option [value]="true">Standby: {{controllerName}} {{failoverControllerLabel}}</mat-option>
@@ -56,6 +58,7 @@ export class IPMIComponent {
   public controllerName = globalHelptext.Ctrlr;
   public currentControllerLabel: string;
   public failoverControllerLabel: string;
+  public managementIP: string;
   private options: Array<any> = [
     {label:'Indefinitely', value: 'force'},
     {label:'15 seconds', value: 15},
@@ -69,66 +72,93 @@ export class IPMIComponent {
   public custActions: Array<any> = [
     {
       'id' : 'ipmi_identify',
-      'name' : 'Identify Light',
+      'name' : T('Identify Light'),
        function :  () => {
         this.dialog.select(
           'IPMI Identify',this.options,'IPMI flash duration','ipmi.identify','seconds', "IPMI identify command issued");
       }
+    },
+    {
+      'id' : 'connect',
+      'name' : T('Manage'),
+       function :  () => {
+        window.open(`http://${this.managementIP}`);
+       }
     }
   ];
-  public fieldConfig: FieldConfig[] = [
-
+  public fieldConfig: FieldConfig[] = []
+  public fieldSets: FieldSet[] = [
     {
-      type : 'input',
-      inputType: 'password',
-      name : 'password',
-      placeholder : helptext.password_placeholder,
-      validation: helptext.password_validation,
-      hasErrors: false,
-      errors: helptext.password_errors,
-      togglePw: true,
-      tooltip : helptext.password_tooltip,
-
+      name: helptext.ipmi_configuration,
+      width: "100%",
+      label: true,
+      config: [
+      {
+        type : 'checkbox',
+        name : 'dhcp',
+        placeholder : helptext.dhcp_placeholder,
+        tooltip : helptext.dhcp_tooltip,
+      },
+      {
+        type : 'input',
+        name : 'ipaddress',
+        placeholder : helptext.ipaddress_placeholder,
+        tooltip : helptext.ipaddress_tooltip,
+        validation : [ ipv4Validator('ipaddress') ],
+        errors: helptext.ip_error,
+        hasErrors: false
+      },
+      {
+        type : 'input',
+        name : 'netmask',
+        placeholder : helptext.netmask_placeholder,
+        tooltip : helptext.netmask_tooltip,
+        validation : [ ipv4Validator('netmask') ],
+        errors: helptext.ip_error,
+        hasErrors: false
+      },
+      {
+        type : 'input',
+        name : 'gateway',
+        placeholder : helptext.gateway_placeholder,
+        tooltip : helptext.gateway_tooltip,
+        validation : [ ipv4Validator('gateway') ],
+        errors: helptext.ip_error,
+        hasErrors: false
+      },
+      {
+        type : 'input',
+        name : 'vlan',
+        placeholder : helptext.vlan_placeholder,
+        tooltip : helptext.vlan_tooltip,
+        inputType: 'number',
+      },
+    ]},
+    {
+      name:'ipmi_divider',
+      divider:true
     },
     {
-      type : 'input',
-      name : 'conf_password',
-      inputType: 'password',
-      placeholder : helptext.conf_password_placeholder,
-      validation : helptext.conf_password_validation
-    },
+      name: helptext.ipmi_password_reset,
+      width: "100%",
+      label: true,
+      config: [
+      {
+        type : 'input',
+        inputType: 'password',
+        name : 'password',
+        placeholder : helptext.password_placeholder,
+        validation: helptext.password_validation,
+        hasErrors: false,
+        errors: helptext.password_errors,
+        togglePw: true,
+        tooltip : helptext.password_tooltip,
+      },
+    ]},
     {
-      type : 'checkbox',
-      name : 'dhcp',
-      placeholder : helptext.dhcp_placeholder,
-      tooltip : helptext.dhcp_tooltip,
-    },
-    {
-      type : 'input',
-      name : 'ipaddress',
-      placeholder : helptext.ipaddress_placeholder,
-      tooltip : helptext.ipaddress_tooltip,
-    },
-    {
-      type : 'input',
-      name : 'netmask',
-      placeholder : helptext.netmask_placeholder,
-      tooltip : helptext.netmask_tooltip,
-    },
-    {
-      type : 'input',
-      name : 'gateway',
-      placeholder : helptext.gateway_placeholder,
-      tooltip : helptext.gateway_tooltip,
-    },
-    {
-      type : 'input',
-      name : 'vlan',
-      placeholder : helptext.vlan_placeholder,
-      tooltip : helptext.vlan_tooltip,
-      inputType: 'number',
-    },
-  ];
+      name:'divider',
+      divider:true
+  }];
 
   constructor(protected router: Router, protected rest: RestService,
               protected ws: WebSocketService,
@@ -140,7 +170,7 @@ export class IPMIComponent {
 
 
   preInit(entityEdit: any) {
-    if (window.localStorage.getItem('is_freenas') === 'false') {
+    if (window.localStorage.getItem('product_type') === 'ENTERPRISE') {
       this.ws.call('failover.licensed').subscribe((is_ha) => {
         this.is_ha = is_ha;
         if (this.is_ha) {
@@ -163,9 +193,32 @@ export class IPMIComponent {
     this.entityEdit = entityEdit;
     this.loadData();
 
-    entityEdit.formGroup.controls['password'].statusChanges.subscribe((res) => {
-      res === 'INVALID' ? _.find(this.fieldConfig)['hasErrors'] = true : _.find(this.fieldConfig)['hasErrors'] = false;
+    entityEdit.formGroup.controls['password'].statusChanges.subscribe((status) => {
+      this.setErrorStatus(status, _.find(this.fieldConfig, {name: "password"}));
     })
+
+    entityEdit.formGroup.controls['ipaddress'].statusChanges.subscribe((status) => {
+      this.setErrorStatus(status, _.find(this.fieldConfig, {name: "ipaddress"}));
+      const ipValue = entityEdit.formGroup.controls['ipaddress'].value;
+      const btn = <HTMLInputElement> document.getElementById('cust_button_Manage');
+      status === 'INVALID' || ipValue === '0.0.0.0' ? btn.disabled = true : btn.disabled = false;
+     })
+
+     entityEdit.formGroup.controls['ipaddress'].valueChanges.subscribe((value) => {
+      this.managementIP = value;
+     })
+
+     entityEdit.formGroup.controls['netmask'].statusChanges.subscribe((status) => {
+      this.setErrorStatus(status, _.find(this.fieldConfig, {name: "netmask"}));
+     })
+
+     entityEdit.formGroup.controls['gateway'].statusChanges.subscribe((status) => {
+      this.setErrorStatus(status, _.find(this.fieldConfig, {name: "gateway"}));
+     })
+  }
+
+  setErrorStatus(status, field) {
+    status === 'INVALID' ? field.hasErrors = true : field.hasErrors = false;
   }
 
   customSubmit(payload){
@@ -177,7 +230,7 @@ export class IPMIComponent {
     this.loader.open();
     return call.subscribe((res) => {
       this.loader.close();
-      this.snackBar.open(T("Settings saved."), T('close'), { duration: 5000 });
+      this.dialog.Info(T("Settings saved."), '', '300px', 'info', true);
     }, (res) => {
       this.loader.close();
       new EntityUtils().handleWSError(this.entityEdit, res);

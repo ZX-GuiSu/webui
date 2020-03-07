@@ -2,7 +2,7 @@ import { Component } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import * as _ from 'lodash';
 import { RestService, SystemGeneralService, WebSocketService } from '../../../../services/';
-import { MatDialog } from '@angular/material';
+import { MatDialog } from '@angular/material/dialog';
 import { EntityJobComponent } from '../../../common/entity/entity-job/entity-job.component';
 import { FieldConfig } from '../../../common/entity/entity-form/models/field-config.interface';
 import { EntityUtils } from '../../../common/entity/utils';
@@ -386,13 +386,13 @@ export class CertificateAddComponent {
       });
     });
 
-    this.ws.call('notifier.choices', ['COUNTRY_CHOICES']).subscribe( (res) => {
+    this.systemGeneralService.getCertificateCountryChoices().subscribe((res) => {
       this.country = _.find(this.fieldConfig, {'name' : 'country'});
-      res.forEach((item) => {
+      for (const item in res) {
         this.country.options.push(
-          { label : item[1], value : item[0]}
+          { label : res[item], value : item}
         );
-      });
+      };
     });
 
     this.ws.call('certificate.query').subscribe((res) => {

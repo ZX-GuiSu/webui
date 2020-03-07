@@ -5,7 +5,6 @@ import { EntityFormEmbeddedComponent } from 'app/pages/common/entity/entity-form
 import { FieldConfig } from 'app/pages/common/entity/entity-form/models/field-config.interface';
 import { FieldSet } from 'app/pages/common/entity/entity-form/models/fieldset.interface';
 import {RestService, WebSocketService} from 'app/services/';
-import { MatSnackBar } from '@angular/material';
 import { ThemeService, Theme} from 'app/services/theme/theme.service';
 import { CoreService, CoreEvent } from 'app/core/services/core.service';
 import { PreferencesService } from 'app/core/services/preferences.service';
@@ -31,9 +30,11 @@ export class GeneralPreferencesFormComponent implements OnInit, AfterViewInit, O
 
   @ViewChild('embeddedForm', {static: false}) embeddedForm: EntityFormEmbeddedComponent;
   public target: Subject<CoreEvent> = new Subject();
+  public isWaiting: boolean = false;
   public values = [];
   public preferences: any;
   public saveSubmitText = T("Update Settings");
+  public multiStateSubmit = true;
   protected isEntity: boolean = true; // was true
   private themeOptions: any[] = [];
   public fieldConfig:FieldConfig[] = [];
@@ -54,7 +55,6 @@ export class GeneralPreferencesFormComponent implements OnInit, AfterViewInit, O
       protected _injector: Injector,
       protected _appRef: ApplicationRef,
       public themeService:ThemeService,
-      public snackBar: MatSnackBar,
       private core:CoreService
     ) {
     }
@@ -62,10 +62,16 @@ export class GeneralPreferencesFormComponent implements OnInit, AfterViewInit, O
     ngOnInit(){
       this.core.emit({name:"UserPreferencesRequest", sender:this});
       this.core.register({observerClass:this,eventName:"UserPreferencesChanged"}).subscribe((evt:CoreEvent) => {
+        if(this.isWaiting){
+          this.target.next({name:"SubmitComplete", sender: this});
+          this.isWaiting = false;
+        }
         this.preferences = evt.data;
         this.onPreferences(evt.data);
-        this.init();
+        this.init(true);
       });
+
+      this.init();
     }
 
     ngAfterViewInit(){
@@ -86,9 +92,15 @@ export class GeneralPreferencesFormComponent implements OnInit, AfterViewInit, O
       this.core.unregister({observerClass:this});
     }
 
-    init(){
+    init(updating?:boolean){
       this.setThemeOptions();
+      if(!updating){
+        this.startSubscriptions();
+      }
+      this.generateFieldConfig();
+    }
 
+    startSubscriptions(){
       this.core.register({observerClass:this,eventName:"ThemeListsChanged"}).subscribe((evt:CoreEvent) => {
         this.setThemeOptions();
         if(!this.embeddedForm){ return; }
@@ -101,13 +113,15 @@ export class GeneralPreferencesFormComponent implements OnInit, AfterViewInit, O
         switch(evt.name){
         case "FormSubmitted":
           this.core.emit({name:"ChangePreferences",data:evt.data});
+          this.target.next({name:"SubmitStart", sender: this});
+          this.isWaiting = true;
           break;
         case "CreateTheme":
           this.router.navigate(new Array('').concat(['ui-preferences', 'create-theme']));
           break;
         }
       });
-      this.generateFieldConfig();
+
     }
 
      setThemeOptions(){
@@ -142,9 +156,26 @@ export class GeneralPreferencesFormComponent implements OnInit, AfterViewInit, O
           name: 'allowPwToggle',
           placeholder: T('Enable Password Toggle'),
           value:prefs.allowPwToggle,
-          tooltip: T('This option enables/disables a password toggle button.'),
+          tooltip: T('When set, an <i>eye</i> icon appears next to \
+ password fields. Clicking the icon reveals the password.'),
           class:'inline'
-        }
+        },
+        {
+          type: 'checkbox',
+          name: 'tableDisplayedColumns',
+          placeholder: T('Reset Table Columns to Default'),
+          value: false,
+          tooltip: T('Reset all tables to display default columns.'),
+          class:'inline'
+        },
+        {
+          type: 'checkbox',
+          name: 'retroLogo',
+          placeholder: T('Retro Logo'),
+          value:prefs.retroLogo,
+          tooltip: T('Revert branding back to FreeNAS'),
+          class:'inline'
+        },
       ]
     }
 
@@ -154,5 +185,9 @@ export class GeneralPreferencesFormComponent implements OnInit, AfterViewInit, O
            this.fieldConfig.push(this.fieldSets[i].config[ii]);
          }
        }
+     }
+
+     beforeSubmit(data) {
+       data.tableDisplayedColumns ? data.tableDisplayedColumns = [] : delete(data.tableDisplayedColumns);
      }
 }

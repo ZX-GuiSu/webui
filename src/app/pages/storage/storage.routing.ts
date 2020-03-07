@@ -9,7 +9,6 @@ import { SnapshotListComponent } from './snapshots/snapshot-list/';
 import { DatasetFormComponent } from './volumes/datasets/dataset-form/';
 import { ManagerComponent } from './volumes/manager/';
 // import { VolumesEditComponent } from './volumes-edit/index';
-import { VolumeDeleteComponent } from './volumes/volume-delete/index';
 import { VolumesListComponent } from './volumes/volumes-list/';
 import { ZvolFormComponent } from './volumes/zvol/zvol-form/';
 import { VMwareSnapshotFormComponent } from './VMware-snapshot/VMware-snapshot';
@@ -19,6 +18,7 @@ import { DiskListComponent } from './disks/disk-list/';
 import { DiskFormComponent } from './disks/disk-form/';
 import { DiskBulkEditComponent } from './disks/disk-bulk-edit';
 import { DiskWipeComponent } from './disks/disk-wipe/disk-wipe.component';
+import { SmartResultsComponent } from './disks/smart-results/smart-results.component';
 import { VolumeAddkeyFormComponent } from 'app/pages/storage/volumes/volumeaddkey-form';
 import { VolumeRekeyFormComponent } from 'app/pages/storage/volumes/volumerekey-form';
 import { VolumeCreatekeyFormComponent } from 'app/pages/storage/volumes/volumecreatekey-form';
@@ -84,10 +84,6 @@ export const routes: Routes = [
           {
             path: 'status/:pk', component: VolumeStatusComponent,
             data: { title: 'Pool Status', breadcrumb: 'Pool Status' }
-          },
-          {
-            path: 'detachvolume/:pk', component: VolumeDeleteComponent,
-            data: { title: 'Detach Pool', breadcrumb: 'Detach Pool' }
           },
           {
             path: 'rekey/:pk', component: VolumeRekeyFormComponent,
@@ -167,6 +163,10 @@ export const routes: Routes = [
           {
             path: 'wipe/:pk', component: DiskWipeComponent,
             data: { title: 'Wipe Disk', breadcrumb: 'Wipe Disk' }
+          },
+          {
+            path: 'smartresults/:pk', component: SmartResultsComponent,
+            data: { title: 'S.M.A.R.T. Test Results', breadcrumb: 'S.M.A.R.T. Test Results'}
           }
         ]
       },

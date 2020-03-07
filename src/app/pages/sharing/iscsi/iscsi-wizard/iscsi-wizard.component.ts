@@ -1,22 +1,23 @@
 import { Component } from '@angular/core';
 import { Wizard } from '../../../common/entity/entity-form/models/wizard.interface';
-import { Validators, FormControl } from '@angular/forms';
+import { Validators, FormControl, ValidationErrors } from '@angular/forms';
 import { Router } from '@angular/router';
 import * as _ from 'lodash';
 
-import helptext from '../../../../helptext/sharing/iscsi/iscsi-wizard';
-import { IscsiService, WebSocketService } from '../../../../services/';
+import { helptext_sharing_iscsi } from '../../../../helptext/sharing/iscsi/iscsi';
+import { IscsiService, WebSocketService, NetworkService, StorageService } from '../../../../services/';
 import { matchOtherValidator } from "app/pages/common/entity/entity-form/validators/password-validation";
 import { CloudCredentialService } from '../../../../services/cloudcredential.service';
 import { EntityUtils } from '../../../common/entity/utils';
 import { AppLoaderService } from '../../../../services/app-loader/app-loader.service';
 import { DialogService } from '../../../../services/';
 import { forbiddenValues } from '../../../common/entity/entity-form/validators/forbidden-values-validation';
+import globalHelptext from 'app/helptext/global-helptext';
 
 @Component({
     selector: 'app-iscsi-wizard',
     template: '<entity-wizard [conf]="this"></entity-wizard>',
-    providers: [IscsiService, CloudCredentialService]
+    providers: [IscsiService, CloudCredentialService, NetworkService, StorageService]
 })
 export class IscsiWizardComponent {
 
@@ -37,7 +38,6 @@ export class IscsiWizardComponent {
         'discovery_authmethod': null,
         'discovery_authgroup': null,
         'listen': null,
-        'auth': null,
         'tag': null,
         'user': null,
         'initiators': null,
@@ -49,13 +49,13 @@ export class IscsiWizardComponent {
 
     protected wizardConfig: Wizard[] = [
         {
-            label: helptext.step1_label,
+            label: helptext_sharing_iscsi.step1_label,
             fieldConfig: [
                 {
                     type: 'input',
                     name: 'name',
-                    placeholder: helptext.name_placeholder,
-                    tooltip: helptext.name_tooltip,
+                    placeholder: helptext_sharing_iscsi.name_placeholder,
+                    tooltip: helptext_sharing_iscsi.name_tooltip,
                     required: true,
                     validation: [
                         Validators.required,
@@ -65,8 +65,8 @@ export class IscsiWizardComponent {
                 {
                     type: 'select',
                     name: 'type',
-                    placeholder: helptext.type_placeholder,
-                    tooltip: helptext.type_tooltip,
+                    placeholder: helptext_sharing_iscsi.extent_placeholder_type,
+                    tooltip: helptext_sharing_iscsi.extent_tooltip_type,
                     options: [
                         {
                             label: 'Device',
@@ -84,8 +84,8 @@ export class IscsiWizardComponent {
                     explorerType: 'file',
                     initial: '/mnt',
                     name: 'path',
-                    placeholder: helptext.file_placeholder,
-                    tooltip: helptext.file_tooltip,
+                    placeholder: helptext_sharing_iscsi.extent_placeholder_path,
+                    tooltip: helptext_sharing_iscsi.extent_tooltip_path,
                     isHidden: false,
                     disabled: false,
                     required: true,
@@ -94,20 +94,42 @@ export class IscsiWizardComponent {
                 {
                     type: 'input',
                     name: 'filesize',
-                    placeholder: helptext.filesize_placeholder,
-                    tooltip: helptext.filesize_tooltip,
+                    placeholder: helptext_sharing_iscsi.extent_placeholder_filesize,
+                    tooltip: helptext_sharing_iscsi.extent_tooltip_filesize,
                     isHidden: false,
                     disabled: false,
                     required: true,
+                    blurEvent:this.blurFilesize,
+                    blurStatus: true,
+                    parent: this,
                     value: 0,
-                    validation: [Validators.required],
+                    validation: [Validators.required,
+                        (control: FormControl): ValidationErrors => {
+                          const config = this.wizardConfig[0].fieldConfig.find(c => c.name === 'filesize');
+                          const size = this.storageService.convertHumanStringToNum(control.value, true);
+
+                          let errors = control.value && isNaN(size)
+                            ? { invalid_byte_string: true }
+                            : null
+
+                          if (errors) {
+                            config.hasErrors = true;
+                            config.errors = globalHelptext.human_readable.input_error;
+                          } else {
+                            config.hasErrors = false;
+                            config.errors = '';
+                          }
+
+                          return errors;
+                        }
+                    ],
                 },
                 // device options
                 {
                     type: 'select',
                     name: 'disk',
-                    placeholder: helptext.disk_placeholder,
-                    tooltip: helptext.disk_tooltip,
+                    placeholder: helptext_sharing_iscsi.disk_placeholder,
+                    tooltip: helptext_sharing_iscsi.disk_tooltip,
                     options: [{
                         label: 'Create New',
                         value: 'NEW'
@@ -123,8 +145,8 @@ export class IscsiWizardComponent {
                     explorerType: 'dataset',
                     initial: '',
                     name: 'dataset',
-                    placeholder: helptext.dataset_placeholder,
-                    tooltip: helptext.dataset_tooltip,
+                    placeholder: helptext_sharing_iscsi.dataset_placeholder,
+                    tooltip: helptext_sharing_iscsi.dataset_tooltip,
                     hasErrors: false,
                     errors: 'Pool/Dataset not exist',
                     required: true,
@@ -134,8 +156,8 @@ export class IscsiWizardComponent {
                     type: 'input',
                     name: 'volsize',
                     inputType: 'number',
-                    placeholder: helptext.volsize_placeholder,
-                    tooltip: helptext.volsize_tooltip,
+                    placeholder: helptext_sharing_iscsi.volsize_placeholder,
+                    tooltip: helptext_sharing_iscsi.volsize_tooltip,
                     validation: [Validators.required, Validators.min(0)],
                     required: true,
                     class: 'inline',
@@ -166,16 +188,16 @@ export class IscsiWizardComponent {
                 {
                     type: 'input',
                     name: 'volblocksize',
-                    placeholder: helptext.volblocksize_placeholder,
-                    tooltip: helptext.volblocksize_tooltip,
+                    placeholder: helptext_sharing_iscsi.volblocksize_placeholder,
+                    tooltip: helptext_sharing_iscsi.volblocksize_tooltip,
                     isHidden: true,
                 },
                 // use for group
                 {
                     type: 'select',
                     name: 'usefor',
-                    placeholder: helptext.usefor_placeholder,
-                    tooltip: helptext.usefor_tooltip,
+                    placeholder: helptext_sharing_iscsi.usefor_placeholder,
+                    tooltip: helptext_sharing_iscsi.usefor_tooltip,
                     options: [
                         {
                             label: "VMware: Extent block size 512b, TPC enabled, no Xen compat mode, SSD speed",
@@ -218,13 +240,13 @@ export class IscsiWizardComponent {
             ]
         },
         {
-            label: helptext.step2_label,
+            label: helptext_sharing_iscsi.step2_label,
             fieldConfig: [
                 {
                     type: 'select',
                     name: 'portal',
-                    placeholder: helptext.portal_placeholder,
-                    tooltip: helptext.portal_tooltip,
+                    placeholder: helptext_sharing_iscsi.portal_placeholder,
+                    tooltip: helptext_sharing_iscsi.portal_tooltip,
                     options: [
                         {
                             label: 'Create New',
@@ -237,8 +259,8 @@ export class IscsiWizardComponent {
                 {
                     type: 'select',
                     name: 'discovery_authmethod',
-                    placeholder: helptext.discovery_authmethod_placeholder,
-                    tooltip: helptext.discovery_authmethod_tooltip,
+                    placeholder: helptext_sharing_iscsi.portal_form_placeholder_discovery_authmethod,
+                    tooltip: helptext_sharing_iscsi.portal_form_tooltip_discovery_authmethod,
                     options: [
                         {
                             label: 'NONE',
@@ -260,12 +282,16 @@ export class IscsiWizardComponent {
                 {
                     type: 'select',
                     name: 'discovery_authgroup',
-                    placeholder: helptext.discovery_authgroup_placeholder,
-                    tooltip: helptext.discovery_authgroup_tooltip,
+                    placeholder: helptext_sharing_iscsi.portal_form_placeholder_discovery_authgroup,
+                    tooltip: helptext_sharing_iscsi.portal_form_tooltip_discovery_authgroup,
                     options: [
                         {
                             label: 'None',
                             value: '',
+                        },
+                        {
+                            label: 'Create New',
+                            value: 'NEW'
                         }
                     ],
                     value: '',
@@ -273,55 +299,10 @@ export class IscsiWizardComponent {
                     disabled: true,
                 },
                 {
-                    type: 'list',
-                    name: 'listen',
-                    templateListField: [
-                        {
-                            type: 'select',
-                            name: 'ip',
-                            placeholder: helptext.ip_placeholder,
-                            tooltip: helptext.ip_tooltip,
-                            options: [],
-                            class: 'inline',
-                            width: '60%',
-                            required: true,
-                            validation : [ Validators.required ],
-                        },
-                        {
-                            type: 'input',
-                            name: 'port',
-                            placeholder: helptext.port_placeholder,
-                            tooltip: helptext.port_tooltip,
-                            value: '3260',
-                            class: 'inline',
-                            width: '30%',
-                        }
-                    ],
-                    listFields: [],
-                    isHidden: true,
-                    disabled: true,
-                },
-                // athorized access
-                {
-                    type: 'select',
-                    name: 'auth',
-                    placeholder: helptext.auth_placeholder,
-                    tooltip: helptext.auth_tooltip,
-                    options: [
-                        {
-                            label: 'Create New',
-                            value: 'NEW'
-                        }
-                    ],
-                    required: true,
-                    isHidden: true,
-                    disabled: true,
-                },
-                {
                     type: 'input',
                     name: 'tag',
-                    placeholder: helptext.tag_placeholder,
-                    tooltip: helptext.tag_tooltip,
+                    placeholder: helptext_sharing_iscsi.authaccess_placeholder_tag,
+                    tooltip: helptext_sharing_iscsi.authaccess_tooltip_tag,
                     inputType: 'number',
                     min: 0,
                     required: true,
@@ -331,8 +312,8 @@ export class IscsiWizardComponent {
                 {
                     type: 'input',
                     name: 'user',
-                    placeholder: helptext.user_placeholder,
-                    tooltip: helptext.user_tooltip,
+                    placeholder: helptext_sharing_iscsi.authaccess_placeholder_user,
+                    tooltip: helptext_sharing_iscsi.authaccess_tooltip_user,
                     required: true,
                     isHidden: true,
                     disabled: true,
@@ -340,8 +321,8 @@ export class IscsiWizardComponent {
                 {
                     type: 'input',
                     name: 'secret',
-                    placeholder: helptext.secret_placeholder,
-                    tooltip: helptext.secret_tooltip,
+                    placeholder: helptext_sharing_iscsi.authaccess_placeholder_secret,
+                    tooltip: helptext_sharing_iscsi.authaccess_tooltip_secret,
                     inputType: 'password',
                     togglePw: true,
                     required: true,
@@ -357,31 +338,63 @@ export class IscsiWizardComponent {
                 {
                     type: 'input',
                     name: 'secret_confirm',
-                    placeholder: helptext.secret_confirm_placeholder,
+                    placeholder: helptext_sharing_iscsi.authaccess_placeholder_secret_confirm,
                     inputType: 'password',
                     isHidden: true,
                     disabled: true,
                 },
+                {
+                    type: 'list',
+                    name: 'listen',
+                    templateListField: [
+                        {
+                            type: 'select',
+                            name: 'ip',
+                            placeholder: helptext_sharing_iscsi.portal_form_placeholder_ip,
+                            tooltip: helptext_sharing_iscsi.portal_form_tooltip_ip,
+                            options: [],
+                            class: 'inline',
+                            width: '60%',
+                            required: true,
+                            validation : [ Validators.required ],
+                        },
+                        {
+                            type: 'input',
+                            name: 'port',
+                            placeholder: helptext_sharing_iscsi.portal_form_placeholder_port,
+                            tooltip: helptext_sharing_iscsi.portal_form_tooltip_port,
+                            value: '3260',
+                            class: 'inline',
+                            width: '30%',
+                        }
+                    ],
+                    listFields: [],
+                    isHidden: true,
+                    disabled: true,
+                },
+
             ]
         },
         {
-            label: helptext.step3_label,
+            label: helptext_sharing_iscsi.step3_label,
             fieldConfig: [
                 {
                     type: 'input',
                     name: 'initiators',
-                    placeholder: helptext.initiators_placeholder,
-                    tooltip: helptext.initiators_tooltip,
+                    placeholder: helptext_sharing_iscsi.initiators_placeholder,
+                    tooltip: helptext_sharing_iscsi.initiators_tooltip,
                     value: '',
                     inputType: 'textarea',
                 },
                 {
                     type: 'input',
                     name: 'auth_network',
-                    placeholder: helptext.auth_network_placeholder,
-                    tooltip: helptext.auth_network_tooltip,
+                    placeholder: helptext_sharing_iscsi.auth_network.placeholder,
+                    tooltip: helptext_sharing_iscsi.auth_network.tooltip,
                     value: '',
+                    hasErrors: false,
                     inputType: 'textarea',
+                    validation: [this.IPValidator('auth_network')]
                 }
             ]
         }
@@ -495,7 +508,9 @@ export class IscsiWizardComponent {
         private cloudcredentialService: CloudCredentialService,
         private dialogService: DialogService,
         private loader: AppLoaderService,
-        private router: Router) {
+        private networkService: NetworkService,
+        private router: Router,
+        private storageService: StorageService) {
         this.iscsiService.getExtents().subscribe(
             (res) => {
                 this.namesInUse.push(...res.map(extent => extent.name));
@@ -562,13 +577,15 @@ export class IscsiWizardComponent {
 
         this.iscsiService.getAuth().subscribe((res) => {
             for (let i = 0; i < res.length; i++) {
-                authGroupField.options.push({ label: res[i].tag, value: res[i].tag });
+                if (_.find(authGroupField.options, {value: res[i].tag}) == undefined) {
+                    authGroupField.options.push({ label: res[i].tag, value: res[i].tag });
+                }
             }
         });
 
         this.iscsiService.getIpChoices().subscribe((ips) => {
             for (const ip in ips) {
-                listenIpField.options.push({ label: ip, value: ips[ip] });
+                listenIpField.options.push({ label: ips[ip], value: ip });
             }
 
             const listenListFields = _.find(this.wizardConfig[1].fieldConfig, { 'name': 'listen' }).listFields;
@@ -578,16 +595,6 @@ export class IscsiWizardComponent {
             }
         });
 
-        this.iscsiService.getAuth().subscribe((res) => {
-            const field = _.find(this.wizardConfig[1].fieldConfig, { 'name': 'auth' });
-            for (let i = 0; i < res.length; i++) {
-                const option = { label: res[i].tag, value: res[i].tag };
-                if (field.options.findIndex(item => item.label === option.label) < 0) {
-                    field.options.push(option);
-                }
-            }
-        })
-
         this.entityWizard.formArray.controls[1].controls['portal'].valueChanges.subscribe((value) => {
             this.disablePortalGroup = value === 'NEW' ? false : true;
             this.disablefieldGroup(this.portalFieldGroup, this.disablePortalGroup, 1);
@@ -595,7 +602,6 @@ export class IscsiWizardComponent {
 
         this.entityWizard.formArray.controls[1].controls['discovery_authmethod'].valueChanges.subscribe((value) => {
             this.disableAuth = ((value === 'CHAP' || value === 'CHAP_MUTUAL') && !this.disablePortalGroup) ? false : true;
-            this.disablefieldGroup(['auth'], this.disableAuth, 1);
 
             authGroupField.required = !this.disableAuth;
             if (this.disableAuth) {
@@ -606,8 +612,8 @@ export class IscsiWizardComponent {
             this.entityWizard.formArray.controls[1].controls['discovery_authgroup'].updateValueAndValidity();
         });
 
-        this.entityWizard.formArray.controls[1].controls['auth'].valueChanges.subscribe((value) => {
-            this.disableAuthGroup = (value === 'NEW' && !this.disableAuth) ? false : true;
+        this.entityWizard.formArray.controls[1].controls['discovery_authgroup'].valueChanges.subscribe((value) => {
+            this.disableAuthGroup = value === 'NEW' ? false : true;
             this.disablefieldGroup(this.authAccessFieldGroup, this.disableAuthGroup, 1);
         });
     }
@@ -648,10 +654,10 @@ export class IscsiWizardComponent {
             'Portal': this.summaryObj.portal,
             'New Portal': {
                 'Discovery Auth Method': this.summaryObj.discovery_authmethod,
-                'Discovery Auth Group': this.summaryObj.discovery_authgroup,
+                'Discovery Auth Group': this.summaryObj.discovery_authgroup === 'NEW' ? `${this.summaryObj.tag} (New Create)` : this.summaryObj.discovery_authgroup,
                 'Listen': this.summaryObj.listen === null ? null : this.summaryObj.listen.map(listen => listen.ip + ':' + listen.port),
             },
-            'Authorized Access': this.summaryObj.auth,
+            'Authorized Access': this.summaryObj.discovery_authgroup,
             'New Authorized Access': {
                 'Group ID': this.summaryObj.tag,
                 'User': this.summaryObj.user,
@@ -671,7 +677,7 @@ export class IscsiWizardComponent {
         }
 
         this.summaryObj.portal === 'Create New' ? delete summary['Portal'] : delete summary['New Portal'];
-        this.summaryObj.auth === 'NEW' ? delete summary['Authorized Access'] : delete summary['New Authorized Access'];
+        this.summaryObj.discovery_authgroup === 'NEW' ? delete summary['Authorized Access'] : delete summary['New Authorized Access'];
 
         if (!this.summaryObj.initiators && !this.summaryObj.auth_network && !this.summaryObj.comment) {
             delete summary['Initiator'];
@@ -751,8 +757,8 @@ export class IscsiWizardComponent {
         const createdItems = {
             zvol: null,
             extent: null,
-            portal: null,
             auth: null,
+            portal: null,
             initiator: null,
             target: null,
             associateTarget: null,
@@ -760,11 +766,13 @@ export class IscsiWizardComponent {
 
         for (const item in createdItems) {
             if (!toStop) {
-                if (!((item === 'zvol' && value['disk'] !== 'NEW') || ((item === 'portal' || item === 'auth') && value[item] !== 'NEW'))) {
+                if (!((item === 'zvol' && value['disk'] !== 'NEW') || (item === 'auth' && value['discovery_authgroup'] !== 'NEW') || (item === 'portal' && value[item] !== 'NEW'))) {
                     await this.doCreate(value, item).then(
                         (res) => {
                             if (item === 'zvol') {
                                 value['disk'] = 'zvol/' + res.id;
+                            } else if (item ==='auth') {
+                                value['discovery_authgroup'] = res.tag;
                             } else {
                                 value[item] = res.id;
                             }
@@ -827,7 +835,12 @@ export class IscsiWizardComponent {
             }
             if (payload.type === 'FILE') {
                 this.fileFieldGroup.forEach((field) => {
-                    payload[field] = value[field];
+                    if (field === 'filesize') {
+                        value[field] = this.storageService.convertHumanStringToNum(value[field], true);
+                        payload[field] = value[field] == 0 ? value[field] : (value[field] + (512 - value[field]%512));
+                    } else {
+                        payload[field] = value[field];
+                    }
                 });
             } else if (payload.type === 'DISK') {
                 payload['disk'] = value['disk'];
@@ -872,6 +885,42 @@ export class IscsiWizardComponent {
                     }
                 );
             }
+        }
+    }
+
+    IPValidator(name: string) {
+        const self = this;
+        return function validIPs(control: FormControl) {
+            const config = self.wizardConfig[2].fieldConfig.find(c => c.name === name);
+            let arr = (control.value).match(/\S+/g);
+            let counter = 0;
+            if (arr) {
+                arr.forEach((item) => {
+                    if (!self.networkService.authNetworkValidator(item)) {
+                        counter++;
+                    }
+                });
+            }
+
+            const errors = control.value && control.value.length > 0 && counter > 0
+            ? { validIPs : true }
+            : null;
+        
+            if (errors) {
+              config.hasErrors = true;
+              config.errors = helptext_sharing_iscsi[name].error;
+            } else {
+              config.hasErrors = false;
+              config.errors = '';
+            }
+    
+            return errors;
+        }
+    };
+
+    blurFilesize(parent){
+        if (parent.entityWizard) {
+            parent.entityWizard.formArray.controls[0].controls['filesize'].setValue(parent.storageService.humanReadable);
         }
     }
 }

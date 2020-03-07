@@ -1,8 +1,10 @@
-import { MatDialogRef, MatSnackBar } from '@angular/material';
+import { MatDialogRef } from '@angular/material/dialog';
 import { Component } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
+import { HttpClient } from '@angular/common/http';
+
 import { WebSocketService } from '../../../services/ws.service';
-import { T } from '../../../translate-marker';
+import { StorageService } from '../../../services/storage.service';
 import { EntityUtils } from '../../../pages/common/entity/utils';
 
 @Component({
@@ -19,21 +21,21 @@ export class ErrorDialog {
   public logs;
 
   constructor(public dialogRef: MatDialogRef < ErrorDialog >, public translate: TranslateService,
-    private ws: WebSocketService,
-    private snackBar: MatSnackBar ) {}
+    private ws: WebSocketService, public http: HttpClient, public storage: StorageService) {}
 
   public toggleOpen () {
-    const messageWrapper = document.getElementById('err-message-wrapper');
-    const dialog = document.getElementsByClassName('mat-dialog-container');
-    const title = document.getElementById('err-title');
-    const content = document.getElementById('err-md-content');
-    const btPanel = document.getElementById('err-bt-panel');
-    const txtarea = document.getElementById('err-bt-text');
+    const dialogs = document.getElementsByClassName('mat-dialog-container');
+    const dialog = dialogs[dialogs.length -1];
+    const messageWrapper = (<HTMLElement>dialog.querySelector('#err-message-wrapper'));
+    const title =   (<HTMLElement>dialog.querySelector('#err-title'));
+    const content = (<HTMLElement>dialog.querySelector('#err-md-content'));
+    const btPanel = (<HTMLElement>dialog.querySelector('#err-bt-panel'));
+    const txtarea = (<HTMLElement>dialog.querySelector('#err-bt-text'));
     
     this.isCloseMoreInfo = !this.isCloseMoreInfo;
     if (!this.isCloseMoreInfo) {
-      dialog[dialog.length-1].setAttribute('style','width : 800px; height: 600px');
-      let errMsgHeight = (document.getElementById('err-message-wrapper').offsetHeight)-21;
+      dialog.setAttribute('style','width : 800px; height: 600px');
+      let errMsgHeight = messageWrapper.offsetHeight-21;
       if (errMsgHeight > 63) {
         errMsgHeight = 63;
       };
@@ -47,7 +49,7 @@ export class ErrorDialog {
         txtarea.style.height = tracebackHeight;
       }, 215);
     } else {
-      dialog[dialog.length-1].removeAttribute('style');
+      dialog.removeAttribute('style');
       title.removeAttribute('style');
       content.removeAttribute('style');
       btPanel.removeAttribute('style');
@@ -58,15 +60,25 @@ export class ErrorDialog {
 
   downloadLogs() {
     this.ws.call('core.download', ['filesystem.get', [this.logs.logs_path], this.logs.id + '.log']).subscribe(
-      (snack_res) => {
-        this.snackBar.open(T("Redirecting to download. Make sure pop-ups are enabled in the browser."), T("Success"), {
-          duration: 5000
+      (res) => {
+        const url = res[1];
+        const mimetype = 'text/plain';
+        let failed = false;
+        this.storage.streamDownloadFile(this.http, url, this.logs.id + '.log', mimetype).subscribe(file => {
+          this.storage.downloadBlob(file, this.logs.id + '.log');
+          if (this.dialogRef) {
+            this.dialogRef.close();
+          };
+        }, err => {
+          failed = true;
+          if (this.dialogRef) {
+            this.dialogRef.close();
+          }
+          new EntityUtils().handleWSError(this, err);
         });
-        window.open(snack_res[1]);
-        this.dialogRef.close(true);
       },
-      (snack_res) => {
-        new EntityUtils().handleWSError(this, snack_res);
+      (err) => {
+        new EntityUtils().handleWSError(this, err);
       }
     );
   }

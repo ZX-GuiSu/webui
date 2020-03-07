@@ -10,7 +10,7 @@ import * as _ from 'lodash';
 import {Subscription} from 'rxjs';
 
 import { UserService } from '../../../../../services/user.service';
-import {RestService, WebSocketService, StorageService, DialogService} from '../../../../../services/';
+import {WebSocketService, StorageService, DialogService} from '../../../../../services/';
 import {
   FieldConfig
 } from '../../../../common/entity/entity-form/models/field-config.interface';
@@ -18,11 +18,10 @@ import { AppLoaderService } from '../../../../../services/app-loader/app-loader.
 import { FieldSet } from 'app/pages/common/entity/entity-form/models/fieldset.interface';
 import { T } from '../../../../../translate-marker';
 import helptext from '../../../../../helptext/storage/volumes/datasets/dataset-acl';
-import { MatDialog } from '@angular/material';
+import { MatDialog } from '@angular/material/dialog';
 import { EntityJobComponent } from '../../../../common/entity/entity-job/entity-job.component';
 import {EntityUtils} from '../../../../common/entity/utils';
 import { ConfirmDialog } from 'app/pages/common/confirm-dialog/confirm-dialog.component';
-
 
 @Component({
   selector : 'app-dataset-acl',
@@ -161,6 +160,7 @@ export class DatasetAclComponent implements OnDestroy {
               tooltip: helptext.dataset_acl_type_tooltip,
               options: helptext.dataset_acl_type_options,
               required: true,
+              value: 'ALLOW'
             },
             {
               type: 'select',
@@ -178,6 +178,7 @@ export class DatasetAclComponent implements OnDestroy {
               placeholder: helptext.dataset_acl_perms_placeholder,
               tooltip: helptext.dataset_acl_perms_tooltip,
               options: helptext.dataset_acl_basic_perms_options,
+              value: 'MODIFY'
             },
             {
               type: 'select',
@@ -196,15 +197,15 @@ export class DatasetAclComponent implements OnDestroy {
               placeholder: helptext.dataset_acl_flags_type_placeholder,
               tooltip: helptext.dataset_acl_flags_type_tooltip,
               options: helptext.dataset_acl_flags_type_options,
+              value: 'BASIC'
             },
             {
               type: 'select',
               name: 'basic_flags',
-              required: true,
-              isHidden: true,
               placeholder: helptext.dataset_acl_flags_placeholder,
               tooltip: helptext.dataset_acl_flags_tooltip,
               options: helptext.dataset_acl_basic_flags_options,
+              value: 'INHERIT'
             },
             {
               type: 'select',
@@ -269,7 +270,7 @@ export class DatasetAclComponent implements OnDestroy {
   ];
 
   constructor(protected router: Router, protected route: ActivatedRoute,
-              protected aroute: ActivatedRoute, protected rest: RestService,
+              protected aroute: ActivatedRoute, 
               protected ws: WebSocketService, protected userService: UserService,
               protected storageService: StorageService, protected dialogService: DialogService,
               protected loader: AppLoaderService, protected dialog: MatDialog) {}
@@ -311,6 +312,11 @@ export class DatasetAclComponent implements OnDestroy {
   }
 
   afterInit(entityEdit: any) {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('homeShare')) {
+      entityEdit.formGroup.controls['default_acl_choices'].setValue('HOME');
+    }
+
     this.entityForm = entityEdit;
     this.recursive = entityEdit.formGroup.controls['recursive'];
     this.recursive_subscription = this.recursive.valueChanges.subscribe((value) => {
@@ -446,6 +452,8 @@ export class DatasetAclComponent implements OnDestroy {
 
   async dataHandler(entityForm, defaults?) {
     entityForm.formGroup.controls['aces'].reset();
+    entityForm.formGroup.controls['aces'].controls = [];
+    this.aces_fc.listFields = [];
     this.gid_fc = _.find(this.fieldConfig, {"name": "gid"});
     this.uid_fc = _.find(this.fieldConfig, {"name": "uid"});
 

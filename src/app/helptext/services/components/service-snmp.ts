@@ -6,13 +6,13 @@ export default {
 location_placeholder : T('Location'),
 location_tooltip: T('Enter the location of the system.'),
 location_label : 'Location',
-location_validation : [ Validators.required ],
+location_validation : [  ],
 
 contact_placeholder : T('Contact'),
 contact_tooltip: T('Enter an email address to receive messages from the\
  <a href="--docurl--/services.html#snmp"\
  target="_blank">SNMP service</a>.'),
-contact_validation: [Validators.required, Validators.email],
+contact_validation: [Validators.email],
 
 community_placeholder : T('Community'),
 community_tooltip: T('Change from <i>public</i> to increase system security.\
@@ -49,14 +49,14 @@ v3_authtype_relation : [ {
 
 v3_password_placeholder : T('Password'),
 v3_password_tooltip: T('Enter a password of at least eight characters.'),
-v3_password_validation : [ Validators.minLength(8), matchOtherValidator('v3_password2'), Validators.required ],
+v3_password_validation : [ Validators.minLength(8), Validators.required ],
 v3_password_relation : [ {
   action : 'HIDE',
   when : [ {name : 'v3', value : false} ]
 } ],
 
 v3_password2_placeholder : T('Confirm Password'),
-v3_password2_validation: [ Validators.required ],
+v3_password2_validation: [],
 v3_password2_relation : [ {
   action : 'HIDE',
   when : [ {name : 'v3', value : false} ]
@@ -77,7 +77,7 @@ v3_privproto_relation : [ {
 v3_privpassphrase_placeholder : T('Privacy Passphrase'),
 v3_privpassphrase_tooltip: T('Enter a separate privacy passphrase. <b>Password</b>\
  is used when this is left empty.'),
-v3_privpassphrase_validation : [ Validators.minLength(8), matchOtherValidator('v3_privpassphrase2') ],
+v3_privpassphrase_validation : [ Validators.minLength(8) ],
 v3_privpassphrase_relation : [ {
   action : 'HIDE',
   when : [ {name : 'v3', value : false} ]
@@ -111,5 +111,8 @@ loglevel_options : [
   {label : 'Notice', value :5},
   {label : 'Info', value :6},
   {label : 'Debug', value :7},
-]
+],
+general_title: T('General Options'),
+v3_title: T('SNMP v3 Options'),
+other_title: T('Other Options')
 }

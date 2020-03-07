@@ -1,6 +1,7 @@
 import { Injectable, OnInit } from '@angular/core';
 import { RestService, WebSocketService } from 'app/services';
 import { Observable ,  Observer ,  Subject } from 'rxjs';
+import * as _ from 'lodash';
 
 export interface NotificationAlert {
   id: string;
@@ -42,25 +43,27 @@ export class NotificationsService {
       }
       
       this.ws.call('alert.list', []).subscribe((res) => {
-        this.notifications = this.alertsArrivedHandler(res);
+          this.notifications = this.alertsArrivedHandler(res);
+          this.subject.next(this.notifications);
+      });
+
+      this.ws.sub('alert.list').subscribe((res) => { // check for updates to alerts
+        const notification  = this.alertsArrivedHandler([res])[0];
+        if (!_.find(this.notifications, {id:notification.id})) {
+          this.notifications.push(notification);
+        }
         this.subject.next(this.notifications);
-    });
+      });
 
-    this.interval = setInterval(() => {
-        
-        if (this.running === false) {
-          this.running = true;
-
-          this.ws.call('alert.list', []).subscribe((res) => {
-            this.notifications = this.alertsArrivedHandler(res);
-            this.subject.next(this.notifications);
-            this.running = false;
-          });
-        } else {
+      this.ws.subscribe('alert.list').subscribe((res) => { // check for changed alerts
+        if (res && res.msg === "changed" && res.cleared) {
+          const index = _.findIndex(this.notifications, { id: res.id });
+          if (index !== -1) {
+            this.notifications.splice(index, 1);
+          }
           this.subject.next(this.notifications);
         }
-      }, this.intervalPeriod);
-      
+      });
     });
 
   }

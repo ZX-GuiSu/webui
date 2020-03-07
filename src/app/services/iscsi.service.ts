@@ -1,7 +1,7 @@
 
 
 import {Injectable} from '@angular/core';
-import {Http} from '@angular/http';
+import {HttpClient} from '@angular/common/http';
 import {Observable, Subject, Subscription} from 'rxjs/Rx';
 
 import {EntityUtils} from '../pages/common/entity/utils'
@@ -32,10 +32,6 @@ export class IscsiService {
 
   listTargetGroups() {
     return this.ws.call('iscsi.target.query', []);
-  };
-
-  getRPMChoices() {
-    return this.ws.call('notifier.choices', ['EXTENT_RPM_CHOICES', [true, false]]);
   };
 
   getVolumes() {

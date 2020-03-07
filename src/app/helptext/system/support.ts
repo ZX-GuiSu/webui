@@ -25,8 +25,8 @@ export const helptext_system_support = {
 
     enable_checkbox_placeholder: T('Enable iXsystems Proactive Support'),
     save_button: T('Save'),
-    snackbar_mesage: T('Successfully saved proactive support settings.'),
-    snackbar_action: T('Close'),
+    dialog_title: T('Settings saved'),
+    dialog_mesage: T('Successfully saved proactive support settings.'),
     dialog_err: T('Error Saving Proactive Support Settings')
   },
 
@@ -62,8 +62,18 @@ export const helptext_system_support = {
 
   email: {
     placeholder: T("Email"),
-    tooltip: T("Enter the email of the contact person."),
+    tooltip: T("Enter the email of the contact person. Use the format <i>name</i>@<i>domain.com</i>."),
     validation: [Validators.required, Validators.email]
+  },
+
+  cc: {
+    placeholder: T("CC"),
+    tooltip: T("Email addresses to receive copies of iXsystems Support \
+  messages about this issue. Use the format <i>name</i>@<i>domain.com</i> \
+  and a comma \(,\) to separate each address."),
+    err: T('Email addresses must be entered in the format \
+  <i>local-name</i>@<i>domain.com<i> with a comma \(,\) separating each \
+  address.')
   },
 
   phone: {
@@ -140,6 +150,12 @@ export const helptext_system_support = {
     snackbar_action: T('Close')
   },
 
+  core_upgrade_license: {
+    dialog_title: T('Add or Update a License'),
+     dialog_msg: T('To update the current software license or upgrade from TrueNAS Core® to TrueNAS \
+ Enterprise®, copy the text of the TrueNAS license and paste it in this box.')
+  },
+
   is_production_checkbox: {
     placeholder: T('This is a production system'),
     tooltip: T('Set system production state and optionally send initial debug.')
@@ -156,9 +172,9 @@ export const helptext_system_support = {
     title: T('Error Updating Production Status'),
   },
 
-  is_production_snackbar: {
-    message: T('Production status successfully updated'),
-    action: T('Close')
+  is_production_dialog: {
+    title: T('Status updated'),
+    message: T('Production status successfully updated')
   },
 
   FN_instructions: T('Search the <a href="https://jira.ixsystems.com/projects/NAS/issues/" \

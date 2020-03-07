@@ -66,19 +66,19 @@ function  convertKMGT(input: number, units: string, fixed?: number){
 
   if(input > tera){
     prefix = "Tera";
-    shortName = "TiB"
+    shortName = " TiB"
     output = input / tera;
   } else if(input < tera && input > giga ){
     prefix = "Giga";
-    shortName = "GiB"
+    shortName = " GiB"
     output = input / giga;
   } else if(input < giga && input > mega){
     prefix = "Mega";
-    shortName = "MiB"
+    shortName = " MiB"
     output = input / mega;
   } else if(input < mega && input > kilo){
     prefix = "Kilo";
-    shortName = "KB"
+    shortName = " KiB"
     output = input / kilo;
   }
 
@@ -253,7 +253,7 @@ function avgCpuTempReport(report){
   //Handle Aggregations
   const keys = Object.keys(output.aggregations);
   keys.forEach((key, index) =>{ 
-    output.aggregations[key] = arrayAvg(output.aggregations[key]);
+    output.aggregations[key] = [arrayAvg(output.aggregations[key])];
   });
   
   return output;

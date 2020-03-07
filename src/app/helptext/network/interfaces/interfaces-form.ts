@@ -30,7 +30,7 @@ int_name_tooltip : T('Enter a name for the interface.\
  <samp>vlan<i>X</i></samp>, or <samp>bridge<i>X</i></samp> where\
  <i>X</i> is a number representing a non-parent interface. Read-only\
  when editing an interface.'),
-int_name_validation : [ Validators.required ],
+int_name_validation : [],
 
 int_dhcp_placeholder : T('DHCP'),
 int_dhcp_tooltip : T('Set to enable DHCP. Leave unset to create a static\
@@ -43,6 +43,18 @@ int_ipv6auto_tooltip : T('Set to automatically configure the IPv6 address with\
  target="_blank">rtsol(8)</a>. Only one interface can\
  be configured this way.'),
 
+disable_offload_capabilities_placeholder: T('Disable Hardware Offloading'),
+disable_offload_capabilities_tooltip: T('Turn off hardware offloading \
+ for network traffic processing. WARNING: disabling hardware offloading \
+ can reduce network performance. Disabling hardware offloading is only \
+ recommended when the interface is managing jails, plugins, or virtual \
+ machines.'),
+
+disable_offload_capabilities_warning_title: T('Disable Hardware Offloading'),
+disable_offload_capabilities_warning_msg: T('Disabling hardware offloading can severely reduce\
+ network performance. Disabling this feature is only recommended when an interface is used for\
+ plugin, jail, or virtual machine networking.'),
+
 int_options_placeholder : T('Options'),
 int_options_tooltip : T('Enter additional space-delimited parameters from <a\
  href="https://www.freebsd.org/cgi/man.cgi?query=ifconfig"\
@@ -50,7 +62,7 @@ int_options_tooltip : T('Enter additional space-delimited parameters from <a\
 
 alias_address_placeholder: T('IP Address'),
 alias_address_tooltip: T('Static IPv4 or IPv6 address and subnet mask. \
- Example: <i>10.0.0.3</i> and <i>24</i>. Click <i>ADD</i> to add another \
+ Example: <i>10.0.0.3</i> and <i>/24</i>. Click <i>ADD</i> to add another \
  IP address. Clicking <i>DELETE</i> removes that IP address.'),
 
 alias_netmaskbit_placeholder: T('Netmask'),
@@ -98,7 +110,7 @@ failover_alias_address_tooltip: T('IPv4 address to use for the failover \
 
 failover_virtual_alias_address_placeholder: T('Virtual IP Address'),
 failover_virtual_alias_address_tooltip: T('IP address to use for \
- administrative access to the system. The netmask <i>32</i> is \
+ administrative access to the system. The netmask <i>/32</i> is \
  required for this value and cannot be changed.'),
 
 vlan_pint_placeholder: T('Parent Interface'),
@@ -115,6 +127,16 @@ vlan_pcp_placeholder: T('Priority Code Point'),
 vlan_pcp_tooltip: T('Select the Class of Service. The available 802.1p\
  Class of Service ranges from <i>Best effort (default)</i> \
  to <i>Network control (highest)</i>.'),
+vlan_pcp_options: [
+    {value:0, label:T("Best effort (default)")},
+    {value:1, label:T("Background (lowest)")},
+    {value:2, label:T("Excellent effort")},
+    {value:3, label:T("Critical applications")},
+    {value:4, label:T("Video, < 100ms latency")},
+    {value:5, label:T("Video, < 10ms latency")},
+    {value:6, label:T("Internetwork control")}, 
+    {value:7, label:T("Network control (highest)")}
+],
 
 lagg_protocol_placeholder : T('Lagg Protocol'),
 lagg_protocol_tooltip : T('Select the <a\
@@ -143,10 +165,21 @@ lagg_interfaces_validation : [ Validators.required ],
 mtu_placeholder: T('MTU'),
 mtu_tooltip: T('Maximum Transmission Unit, the largest protocol data \
  unit that can be communicated. The largest workable MTU size varies \
- with network interfaces and equipment. *1500* and *9000* are standard \
- Ethernet MTU sizes.'),
+ with network interfaces and equipment. <i>1500</i> and <i>9000</i> \
+ are standard Ethernet MTU sizes. Leaving blank restores the field to \
+ the default value of <i>1500</i>.'),
 mtu_validation: [rangeValidator(68, 9000)],
 
 alias_list_placeholder: T('Aliases'),
-alias_list_label: T('Aliases')
+alias_list_label: T('Aliases'),
+
+int_save_button: T('Apply'),
+
+interface_settings: T('Interface Settings'),
+vlan_settings: T('VLAN Settings'),
+bridge_settings: T('Bridge Settings'),
+lag_settings: T('LAGG Settings'),
+failover_settings: T('Failover Settings'),
+other_settings: T('Other Settings'),
+ip_addresses: T('IP Addresses')
 }

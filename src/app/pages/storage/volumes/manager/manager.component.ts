@@ -1,44 +1,30 @@
-import {
-  Component,
-  OnInit,
-  OnDestroy,
-  QueryList,
-  ViewChild,
-  ViewChildren,
-  AfterViewInit,
-} from '@angular/core';
+import { AfterViewInit, Component, OnDestroy, OnInit, QueryList, ViewChild, ViewChildren } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
+import { ActivatedRoute, Router } from '@angular/router';
+import { TranslateService } from '@ngx-translate/core';
+import { DatatableComponent } from '@swimlane/ngx-datatable';
+import { EntityJobComponent } from 'app/pages/common/entity/entity-job';
 import * as _ from 'lodash';
-import { Router, ActivatedRoute } from '@angular/router';
-// import { DragulaService } from 'ng2-dragula';
-import { Subscription } from 'rxjs';
-import { RestService, WebSocketService, DialogService } from '../../../../services/';
+import { of, Subscription } from 'rxjs';
+import { switchMap, take } from 'rxjs/operators';
+import { DownloadKeyModalDialog } from '../../../../components/common/dialog/downloadkey/downloadkey-dialog.component';
+import helptext from '../../../../helptext/storage/volumes/manager/manager';
+import { DialogService, WebSocketService } from '../../../../services/';
+import { AppLoaderService } from '../../../../services/app-loader/app-loader.service';
+import { StorageService } from '../../../../services/storage.service';
+import { T } from '../../../../translate-marker';
+import { DialogFormConfiguration } from '../../../common/entity/entity-dialog/dialog-form-configuration.interface';
+import { EntityUtils } from '../../../common/entity/utils';
 import { DiskComponent } from './disk/';
 import { VdevComponent } from './vdev/';
-import { MatSnackBar, MatDialog, MatDialogRef } from '@angular/material';
-import { DatatableComponent } from '@swimlane/ngx-datatable';
-import { TranslateService } from '@ngx-translate/core';
-import { AppLoaderService } from '../../../../services/app-loader/app-loader.service';
-import { StorageService } from '../../../../services/storage.service'
-import { EntityUtils } from '../../../common/entity/utils';
-import { DownloadKeyModalDialog } from '../../../../components/common/dialog/downloadkey/downloadkey-dialog.component';
-import { T } from '../../../../translate-marker';
-import helptext from '../../../../helptext/storage/volumes/manager/manager';
-import { DialogFormConfiguration } from '../../../common/entity/entity-dialog/dialog-form-configuration.interface';
-
 
 @Component({
   selector: 'app-manager',
   templateUrl: 'manager.component.html',
-  styleUrls: [
-    'manager.component.css',
-  ],
-  providers: [
-    RestService,
-    DialogService
-  ],
+  styleUrls: ['manager.component.css'],
+  providers: [DialogService],
 })
 export class ManagerComponent implements OnInit, OnDestroy, AfterViewInit {
-
   public disks: Array < any > = [];
   public suggestable_disks: Array < any > = [];
   public can_suggest = false;
@@ -56,7 +42,10 @@ export class ManagerComponent implements OnInit, OnDestroy, AfterViewInit {
   public temp = [];
 
   public name: string;
-  public resource_name = 'storage/volume/';
+  public addCall = 'pool.create';
+  public editCall = 'pool.update';
+  public queryCall = 'pool.query';
+  public datasetQueryCall = 'pool.dataset.query';
   public pk: any;
   public isNew = true;
   public vol_encrypt: number = 0;
@@ -94,6 +83,7 @@ export class ManagerComponent implements OnInit, OnDestroy, AfterViewInit {
   public vdevtypeErrorMessage = helptext.manager_vdevtypeErrorMessage;
 
   public vdevdisksError = false;
+  public vdevdisksSizeError = false;
 
   public diskAddWarning = helptext.manager_diskAddWarning;
   public diskExtendWarning = helptext.manager_diskExtendWarning;
@@ -119,49 +109,20 @@ export class ManagerComponent implements OnInit, OnDestroy, AfterViewInit {
 
   public startingHeight: any;
   public expandedRows: any;
+  public swapondrive = 2;
+
+  public has_savable_errors = false;
+  public force = false;
 
   constructor(
-    private rest: RestService,
     private ws: WebSocketService,
     private router: Router,
-//    private dragulaService: DragulaService,
     private dialog:DialogService,
-    public snackBar: MatSnackBar,
     private loader:AppLoaderService,
     protected route: ActivatedRoute,
     public mdDialog: MatDialog,
     public translate: TranslateService,
-    public sorter: StorageService ) {
-
-/*    dragulaService.setOptions('pool-vdev', {
-      accepts: (el, target, source, sibling) => { return true; },
-    });
-    dragulaService.drag.subscribe((value) => { console.log(value); });
-    dragulaService.drop.subscribe((value) => {
-      let [bucket, diskDom, destDom, srcDom, _] = value;
-      let disk, srcVdev, destVdev;
-      this.diskComponents.forEach((item) => {
-        if (diskDom == item.elementRef.nativeElement) {
-          disk = item;
-        }
-      });
-      this.vdevComponents.forEach((item) => {
-        if (destDom == item.dnd.nativeElement) {
-          destVdev = item;
-        } else if (srcDom == item.dnd.nativeElement) {
-          srcVdev = item;
-        }
-      });
-      if (srcVdev) {
-        srcVdev.removeDisk(disk);
-      }
-      if (destVdev) {
-        destVdev.addDisk(disk);
-      }
-    });
-    dragulaService.over.subscribe((value) => { console.log(value); });
-    dragulaService.out.subscribe((value) => { console.log(value); }); */
-  }
+    public sorter: StorageService) {}
 
   duplicate() {
     const duplicable_disks = this.duplicable_disks;
@@ -219,6 +180,9 @@ export class ManagerComponent implements OnInit, OnDestroy, AfterViewInit {
           self.addVdev('data', vdev_values);
         }
         entityDialog.dialogRef.close(true);
+        setTimeout(function() {
+          self.getCurrentLayout();
+        }, 500);
       },
       parent: this,
       afterInit: function(entityDialog) {
@@ -256,12 +220,7 @@ export class ManagerComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   getPoolData() {
-    this.ws.call('pool.query', [
-      [
-        ["id", "=", this.pk]
-      ]
-    ]).subscribe(
-      (res) => {
+    this.ws.call(this.queryCall, [[["id", "=", this.pk]]]).subscribe((res) => {
         if (res[0]) {
           this.first_data_vdev_type = res[0].topology.data[0].type.toLowerCase();
           if (this.first_data_vdev_type === 'raidz1') {
@@ -285,43 +244,41 @@ export class ManagerComponent implements OnInit, OnDestroy, AfterViewInit {
             }
             this.getDuplicableDisks();
           });
+          this.name = res[0].name;
+          this.vol_encrypt = res[0].encrypt;
+          if (this.vol_encrypt > 0) {
+            this.isEncrypted = true;
+          }
+          this.ws.call(this.datasetQueryCall, [[["id","=",res[0].name]]]).subscribe(datasets => {
+            if (datasets[0]) {
+              this.extendedAvailable = datasets[0].available.parsed;
+              this.size = (<any>window).filesize(this.extendedAvailable, {standard : "iec"});
+            }
+          })
         }
       },
       (err) => {
         new EntityUtils().handleWSError(this, err, this.dialog);
       }
     );
-    this.rest.get(this.resource_name + this.pk, {}).subscribe((res) => {
-      if (res && res.data) {
-        this.extendedAvailable = res.data.avail;
-        this.size = (<any>window).filesize(this.extendedAvailable, {standard : "iec"});
-      }
-    },
-    (err) => {
-      new EntityUtils().handleError(this, err);
-    });
   }
 
   ngOnInit() {
+    this.ws.call('system.advanced.config').subscribe(res => {
+      this.swapondrive = res.swapondrive;
+    });
     this.route.params.subscribe(params => {
       if (params['pk']) {
-        this.pk = parseInt(params['pk']);
+        this.pk = parseInt(params['pk'], 10);
         this.isNew = false;
       }
     });
     if (!this.isNew) {
       this.submitTitle = this.extendedSubmitTitle;
       this.sizeMessage = this.extendedSizeMessage;
-      this.rest.get(this.resource_name + this.pk + '/', {}).subscribe((res) => {
-        this.name = res.data.vol_name;
-        this.vol_encrypt = res.data.vol_encrypt;
-        if (this.vol_encrypt > 0) {
-          this.isEncrypted = true;
-        }
-      });
       this.getPoolData();
     } else {
-      this.ws.call('pool.query', []).subscribe((res) => {
+      this.ws.call(this.queryCall, []).subscribe((res) => {
         if (res) {
           this.existing_pools = res;
         }
@@ -427,6 +384,8 @@ export class ManagerComponent implements OnInit, OnDestroy, AfterViewInit {
     this.disknumError = null;
     this.vdevtypeError = null;
     this.vdevdisksError = false;
+    this.vdevdisksSizeError = false;
+    this.has_savable_errors = false;
 
     this.vdevComponents.forEach((vdev, i) => {
       if (vdev.group === 'data') {
@@ -469,6 +428,10 @@ export class ManagerComponent implements OnInit, OnDestroy, AfterViewInit {
       }
       if (vdev.vdev_disks_error) {
         this.vdevdisksError = true;
+      }
+      if (vdev.vdev_disks_size_error) {
+        this.vdevdisksSizeError = true;
+        this.has_savable_errors = true;
       }
 
     });
@@ -517,6 +480,9 @@ export class ManagerComponent implements OnInit, OnDestroy, AfterViewInit {
     if (this.vdevdisksError) {
       return false;
     }
+    if (this.has_savable_errors && !this.force) {
+      return false;
+    }
     return true;
   }
 
@@ -538,6 +504,18 @@ export class ManagerComponent implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  forceCheckboxChecked() {
+    if (!this.force) {
+      let warnings = helptext.force_warning;
+      if (this.vdevdisksSizeError) {
+        warnings = warnings + '<br/><br/>' + helptext.force_warnings['diskSizeWarning'];
+      }
+      this.dialog.confirm(helptext.force_title, warnings).subscribe(res => {
+        this.force = res;
+      }); 
+    }
+  }
+
   doSubmit() {
     let confirmButton = T('Create Pool');
     let diskWarning = this.diskAddWarning;
@@ -550,68 +528,75 @@ export class ManagerComponent implements OnInit, OnDestroy, AfterViewInit {
       if (res) {
         this.error = null;
 
-        const layout = [];
+        const layout = {};
         this.vdevComponents.forEach((vdev) => {
           const disks = [];
           vdev.getDisks().forEach((disk) => {
             disks.push(disk.devname); });
           if (disks.length > 0) {
-            layout.push({ vdevtype: vdev.type, disks: disks });
+            let type = vdev.type.toUpperCase();
+            type = type === 'RAIDZ' ? 'RAIDZ1' : type;
+            const group = vdev.group;
+            if (!layout[group]) {
+              layout[group] = [];
+            }
+            if (group === 'spares') {
+              layout[group] = disks;
+            } else {
+              layout[group].push({ type:type, disks:disks });
+            }
           }
         });
 
         let body = {};
-        this.loader.open();
         if (this.isNew) {
-          body = {volume_name: this.name, encryption: this.isEncrypted, layout: layout };
+          body = {name: this.name, encryption: this.isEncrypted, topology: layout };
         } else {
-          body  = {volume_add: this.name, layout: layout };
+          body = { topology: layout };
         }
-        this.busy =
-          this.rest
-          .post(this.resource_name, {
-            body: JSON.stringify(body)
-          })
-          .subscribe(
-            (res) => {
-              this.loader.close();
-              if(this.isEncrypted) {
-                let dialogRef = this.mdDialog.open(DownloadKeyModalDialog, {disableClose:true});
 
-                dialogRef.componentInstance.volumeId = res.data.id;
-                dialogRef.componentInstance.fileName = 'pool_' + res.data.name + '_encryption.key';
-                dialogRef.afterClosed().subscribe(result => {
-                  this.goBack();
-                });
+        const dialogRef = this.mdDialog.open(EntityJobComponent, {
+          data: { title: confirmButton, disableClose: true }
+        });
+        if (this.pk) {
+          dialogRef.componentInstance.setCall(this.editCall, [this.pk, body]);
+        } else {
+          dialogRef.componentInstance.setCall(this.addCall, [body]);
+        }
+        dialogRef.componentInstance.success
+          .pipe(
+            switchMap((r: any) => {
+              if (this.isEncrypted) {
+                const downloadDialogRef = this.mdDialog.open(DownloadKeyModalDialog, { disableClose: true });
+                downloadDialogRef.componentInstance.volumeId = r.data.id;
+                downloadDialogRef.componentInstance.fileName = "pool_" + r.data.name + "_encryption.key";
+
+                return downloadDialogRef.afterClosed();
               }
-              else {
-                this.goBack();
-              }
-            },
-            (res) => {
-              this.loader.close();
-              if (res.code == 409) {
-                this.error = '';
-                for (let i in res.error) {
-                  res.error[i].forEach(
-                    (error) => { this.error += error + '<br />'; });
-                }
-              } else {
-                this.dialog.errorReport(T('Error creating pool'), res.error.error_message, res.error.traceback);
-              }
-            });
-          }
+
+              return of(true);
+            }),
+            take(1)
+          )
+          .subscribe(
+            () => {},
+            e => new EntityUtils().handleWSError(this, e, this.dialog),
+            () => {
+              dialogRef.close(false);
+              this.goBack();
+            }
+          );
+        dialogRef.componentInstance.failure.subscribe(error => {
+          dialogRef.close(false);
+          new EntityUtils().handleWSError(self, error, this.dialog);
+        });
+        dialogRef.componentInstance.submit();
+      }
     });
   }
 
   goBack() {
     this.router.navigate(['/', 'storage', 'pools']);
-  }
-
-  openSnackBar() {
-    this.snackBar.open(this.encryption_message, T("Warning"), {
-      duration: 5000,
-    });
   }
 
   openDialog() {

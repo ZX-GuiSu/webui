@@ -1,20 +1,22 @@
 import { Component } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
+import { Validators, FormControl, ValidationErrors } from "@angular/forms";
 import { Subscription } from 'rxjs/Subscription';
 
 import * as _ from 'lodash';
 
 import { EntityFormComponent } from '../../../../common/entity/entity-form';
-import { FieldConfig } from '../../../../common/entity/entity-form/models/field-config.interface';
-import { IscsiService, RestService, WebSocketService } from '../../../../../services/';
+import { FieldSet } from '../../../../common/entity/entity-form/models/fieldset.interface';
+import { IscsiService, RestService, WebSocketService, StorageService } from '../../../../../services/';
 import { EntityUtils } from '../../../../common/entity/utils';
 import { AppLoaderService } from '../../../../../services/app-loader/app-loader.service';
 import { helptext_sharing_iscsi } from 'app/helptext/sharing';
+import globalHelptext from 'app/helptext/global-helptext';
 
 @Component({
   selector: 'app-iscsi-initiator-form',
   template: `<entity-form [conf]="this"></entity-form>`,
-  providers: [ IscsiService ],
+  providers: [ IscsiService, StorageService ],
 })
 export class ExtentFormComponent {
 
@@ -28,145 +30,220 @@ export class ExtentFormComponent {
   protected entityForm: EntityFormComponent;
   protected isNew: boolean = false;
   public sub: Subscription;
+  protected originalFilesize;
 
-  protected fieldConfig: FieldConfig[] = [
+  public fieldSets: FieldSet[] = [
     {
-      type : 'input',
-      name : 'name',
-      placeholder : helptext_sharing_iscsi.extent_placeholder_name,
-      tooltip: helptext_sharing_iscsi.extent_tooltip_name,
-      required: true,
-      validation : helptext_sharing_iscsi.extent_validators_name
-    },
-    {
-      type: 'select',
-      name: 'type',
-      placeholder: helptext_sharing_iscsi.extent_placeholder_type,
-      tooltip: helptext_sharing_iscsi.extent_tooltip_type,
-      options: [
+      name: helptext_sharing_iscsi.fieldset_extent_basic,
+      label: true,
+      class: 'basic',
+      width: '100%',
+      config: [
         {
-          label: 'Device',
-          value: 'DISK',
+          type : 'input',
+          name : 'name',
+          placeholder : helptext_sharing_iscsi.extent_placeholder_name,
+          tooltip: helptext_sharing_iscsi.extent_tooltip_name,
+          required: true,
+          validation : helptext_sharing_iscsi.extent_validators_name
         },
         {
-          label: 'File',
-          value: 'FILE',
+          type : 'input',
+          name : 'comment',
+          placeholder : helptext_sharing_iscsi.extent_placeholder_comment,
+          tooltip: helptext_sharing_iscsi.extent_tooltip_comment,
         },
-      ],
-    },
-    {
-      type: 'select',
-      name: 'disk',
-      placeholder: helptext_sharing_iscsi.extent_placeholder_disk,
-      tooltip: helptext_sharing_iscsi.extent_tooltip_disk,
-      options: [],
-      isHidden: false,
-      disabled: false,
-      required: true,
-      validation : helptext_sharing_iscsi.extent_validators_disk
-    },
-    {
-      type : 'input',
-      name : 'serial',
-      placeholder : helptext_sharing_iscsi.extent_placeholder_serial,
-      tooltip: helptext_sharing_iscsi.extent_tooltip_serial,
-    },
-    {
-      type : 'explorer',
-      explorerType: 'file',
-      initial: '/mnt',
-      name: 'path',
-      placeholder: helptext_sharing_iscsi.extent_placeholder_path,
-      tooltip: helptext_sharing_iscsi.extent_tooltip_path,
-      isHidden: false,
-      disabled: false,
-      required: true,
-      validation : helptext_sharing_iscsi.extent_validators_path
-    },
-    {
-      type: 'input',
-      name: 'filesize',
-      placeholder: helptext_sharing_iscsi.extent_placeholder_filesize,
-      tooltip: helptext_sharing_iscsi.extent_tooltip_filesize,
-      isHidden: false,
-      disabled: false,
-      required: true,
-      validation : helptext_sharing_iscsi.extent_validators_filesize
-    },
-    {
-      type: 'select',
-      name: 'blocksize',
-      placeholder: helptext_sharing_iscsi.extent_placeholder_blocksize,
-      tooltip: helptext_sharing_iscsi.extent_tooltip_blocksize,
-      options: [
         {
-          label: '512',
+          type: 'checkbox',
+          name: 'enabled',
+          placeholder: helptext_sharing_iscsi.extent_placeholder_enabled,
+          tooltip: helptext_sharing_iscsi.extent_tooltip_enabled,
+        }
+      ]
+    },
+    {
+      name: helptext_sharing_iscsi.fieldset_extent_type,
+      label: true,
+      class: 'type',
+      width: '100%',
+      config: [
+        {
+          type: 'select',
+          name: 'type',
+          placeholder: helptext_sharing_iscsi.extent_placeholder_type,
+          tooltip: helptext_sharing_iscsi.extent_tooltip_type,
+          options: [
+            {
+              label: 'Device',
+              value: 'DISK',
+            },
+            {
+              label: 'File',
+              value: 'FILE',
+            },
+          ],
+        },
+        {
+          type: 'select',
+          name: 'disk',
+          placeholder: helptext_sharing_iscsi.extent_placeholder_disk,
+          tooltip: helptext_sharing_iscsi.extent_tooltip_disk,
+          options: [],
+          isHidden: false,
+          disabled: false,
+          required: true,
+          validation : helptext_sharing_iscsi.extent_validators_disk
+        },
+        {
+          type : 'explorer',
+          explorerType: 'file',
+          initial: '/mnt',
+          name: 'path',
+          placeholder: helptext_sharing_iscsi.extent_placeholder_path,
+          tooltip: helptext_sharing_iscsi.extent_tooltip_path,
+          isHidden: false,
+          disabled: false,
+          required: true,
+          validation : helptext_sharing_iscsi.extent_validators_path
+        },
+        {
+          type: 'input',
+          name: 'filesize',
+          placeholder: helptext_sharing_iscsi.extent_placeholder_filesize,
+          tooltip: helptext_sharing_iscsi.extent_tooltip_filesize,
+          isHidden: false,
+          disabled: false,
+          required: true,
+          blurEvent:this.blurFilesize,
+          blurStatus: true,
+          parent: this,
+          validation: [Validators.required,
+            (control: FormControl): ValidationErrors => {
+              const config = this.fieldConfig.find(c => c.name === 'filesize');
+              const size = this.storageService.convertHumanStringToNum(control.value, true);
+              const errors = control.value && isNaN(size)
+                ? { invalid_byte_string: true }
+                : null;
+              if (errors) {
+                config.hasErrors = true;
+                config.errors = globalHelptext.human_readable.input_error;
+              } else {
+                config.hasErrors = false;
+                config.errors = '';
+              }
+
+              return errors;
+            }
+          ]
+        },
+        {
+          type : 'input',
+          name : 'serial',
+          placeholder : helptext_sharing_iscsi.extent_placeholder_serial,
+          tooltip: helptext_sharing_iscsi.extent_tooltip_serial,
+        },
+        {
+          type: 'select',
+          name: 'blocksize',
+          placeholder: helptext_sharing_iscsi.extent_placeholder_blocksize,
+          tooltip: helptext_sharing_iscsi.extent_tooltip_blocksize,
+          options: [
+            {
+              label: '512',
+              value: 512,
+            },
+            {
+              label: '1024',
+              value: 1024,
+            },
+            {
+              label: '2048',
+              value: 2048,
+            },
+            {
+              label: '4096',
+              value: 4096,
+            },
+          ],
           value: 512,
         },
         {
-          label: '1024',
-          value: 1024,
+          type: 'checkbox',
+          name: 'pblocksize',
+          placeholder: helptext_sharing_iscsi.extent_placeholder_pblocksize,
+          tooltip: helptext_sharing_iscsi.extent_tooltip_pblocksize,
         },
         {
-          label: '2048',
-          value: 2048,
+          type: 'input',
+          name: 'avail_threshold',
+          placeholder: helptext_sharing_iscsi.extent_placeholder_avail_threshold,
+          tooltip: helptext_sharing_iscsi.extent_tooltip_avail_threshold,
+          isHidden: false,
+        },
+      ]
+    },
+    {
+      name: helptext_sharing_iscsi.fieldset_extent_options,
+      label: true,
+      class: 'options',
+      width: '100%',
+      config: [
+        {
+          type: 'checkbox',
+          name: 'insecure_tpc',
+          placeholder: helptext_sharing_iscsi.extent_placeholder_insecure_tpc,
+          tooltip: helptext_sharing_iscsi.extent_tooltip_insecure_tpc,
+          value: true,
         },
         {
-          label: '4096',
-          value: 4096,
+          type: 'checkbox',
+          name: 'xen',
+          placeholder: helptext_sharing_iscsi.extent_placeholder_xen,
+          tooltip: helptext_sharing_iscsi.extent_tooltip_xen,
         },
-      ],
-      value: 512,
-    },
-    {
-      type: 'checkbox',
-      name: 'pblocksize',
-      placeholder: helptext_sharing_iscsi.extent_placeholder_pblocksize,
-      tooltip: helptext_sharing_iscsi.extent_tooltip_pblocksize,
-    },
-    {
-      type: 'input',
-      name: 'avail_threshold',
-      placeholder: helptext_sharing_iscsi.extent_placeholder_avail_threshold,
-      tooltip: helptext_sharing_iscsi.extent_tooltip_avail_threshold,
-      isHidden: false,
-    },
-    {
-      type : 'input',
-      name : 'comment',
-      placeholder : helptext_sharing_iscsi.extent_placeholder_comment,
-      tooltip: helptext_sharing_iscsi.extent_tooltip_comment,
-    },
-    {
-      type: 'checkbox',
-      name: 'insecure_tpc',
-      placeholder: helptext_sharing_iscsi.extent_placeholder_insecure_tpc,
-      tooltip: helptext_sharing_iscsi.extent_tooltip_insecure_tpc,
-      value: true,
-    },
-    {
-      type: 'checkbox',
-      name: 'xen',
-      placeholder: helptext_sharing_iscsi.extent_placeholder_xen,
-      tooltip: helptext_sharing_iscsi.extent_tooltip_xen,
-    },
-    {
-      type: 'select',
-      name: 'rpm',
-      placeholder: helptext_sharing_iscsi.extent_placeholder_rpm,
-      tooltip: helptext_sharing_iscsi.extent_tooltip_rpm,
-      options: [],
-      value: 'SSD',
-    },
-    {
-      type: 'checkbox',
-      name: 'ro',
-      placeholder: helptext_sharing_iscsi.extent_placeholder_ro,
-      tooltip: helptext_sharing_iscsi.extent_tooltip_ro,
-    },
-  ];
+        {
+          type: 'select',
+          name: 'rpm',
+          placeholder: helptext_sharing_iscsi.extent_placeholder_rpm,
+          tooltip: helptext_sharing_iscsi.extent_tooltip_rpm,
+          options: [
+            {
+              label: 'UNKNOWN',
+              value: 'UNKNOWN',
+            },
+            {
+              label: 'SSD',
+              value: 'SSD',
+            },
+            {
+              label: '5400',
+              value: '5400',
+            },
+            {
+              label: '7200',
+              value: '7200',
+            },
+            {
+              label: '10000',
+              value: '10000',
+            },
+            {
+              label: '15000',
+              value: '15000',
+            },
+          ],
+          value: 'SSD',
+        },
+        {
+          type: 'checkbox',
+          name: 'ro',
+          placeholder: helptext_sharing_iscsi.extent_placeholder_ro,
+          tooltip: helptext_sharing_iscsi.extent_tooltip_ro,
+        }
+      ]
+    }
+  ]
 
-  protected rpm_control: any;
   protected deviceFieldGroup: any[] = [
     'disk',
   ];
@@ -178,41 +255,37 @@ export class ExtentFormComponent {
   protected extent_disk_control: any;
   protected pk: string;
   protected avail_threshold_field: any;
+  protected fieldConfig;
 
   constructor(protected router: Router,
               protected aroute: ActivatedRoute,
               protected iscsiService: IscsiService,
               protected rest: RestService,
               protected ws: WebSocketService,
-              protected loader: AppLoaderService) {}
+              protected loader: AppLoaderService,
+              protected storageService: StorageService) {}
 
   preInit() {
     this.sub = this.aroute.params.subscribe(params => {
       // removed serial field in edit mode
       if (!params['pk']) {
         this.isNew = true;
-        this.fieldConfig = _.filter(this.fieldConfig, function(item) {
-          return item.name != 'serial';
+        const extentTypeFieldset = _.find(this.fieldSets, {class: 'type'});
+        extentTypeFieldset.config = _.filter(extentTypeFieldset.config, function(item) {
+          return item.name !== 'serial';
         });
       } else {
         this.isNew = false;
         this.pk = params['pk'];
-        this.customFilter[0][0].push(parseInt(params['pk']));
+        this.customFilter[0][0].push(parseInt(params['pk'], 10));
       }
     });
   }
 
   afterInit(entityForm: any) {
     this.entityForm = entityForm;
-
-    this.rpm_control = _.find(this.fieldConfig, {'name' : 'rpm'});
-    this.iscsiService.getRPMChoices().subscribe((res) => {
-      res.forEach((item) => {
-        this.rpm_control.options.push({label : item[1], value : item[0]});
-      });
-    });
-
-    let extent_disk_field = _.find(this.fieldConfig, {'name' : 'disk'});
+    this.fieldConfig = entityForm.fieldConfig;
+    const extent_disk_field = _.find(this.fieldConfig, {'name' : 'disk'});
     //get device options
     this.iscsiService.getExtentDevices().subscribe((res) => {
       for(let i in res) {
@@ -271,11 +344,15 @@ export class ExtentFormComponent {
   }
 
   resourceTransformIncomingRestData(data) {
+    this.originalFilesize = parseInt(data.filesize, 10);
     if (data.type == 'DISK') {
       if (_.startsWith(data['path'], 'zvol')) {
         data['disk'] = data['path'];
       }
       delete data['path'];
+    }
+    if (data.filesize && data.filesize !== '0') {
+      data.filesize = this.storageService.convertBytestoHumanReadable(data.filesize);
     }
     return data;
   }
@@ -296,5 +373,18 @@ export class ExtentFormComponent {
       }
     );
 
+  }
+
+  beforeSubmit(data) {
+    data.filesize = this.storageService.convertHumanStringToNum(data.filesize, true);
+    if (this.pk === undefined || this.originalFilesize !== data.filesize) {
+      data.filesize = data.filesize == 0 ? data.filesize : (data.filesize + (data.blocksize - data.filesize%data.blocksize));
+    }
+  }
+
+  blurFilesize(parent){
+    if (parent.entityForm) {
+        parent.entityForm.formGroup.controls['filesize'].setValue(parent.storageService.humanReadable);
+    }
   }
 }

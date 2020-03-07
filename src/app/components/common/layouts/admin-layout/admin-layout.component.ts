@@ -1,17 +1,16 @@
-import { RestService, WebSocketService, AppLoaderService } from '../../../../services';
-import { CoreService, CoreEvent } from 'app/core/services/core.service';
-import { Component, AfterViewChecked, OnInit, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
-import { Router, NavigationEnd } from '@angular/router';
-import { Subscription } from "rxjs";
+import { AfterViewChecked, ChangeDetectorRef, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { MediaChange, MediaObserver } from "@angular/flex-layout";
-import { FlexLayoutModule } from "@angular/flex-layout";
-import { MatSidenav, MatDialog, MatDialogRef } from '@angular/material';
+import { MatDialog } from '@angular/material/dialog';
+import { MatSidenav } from '@angular/material/sidenav';
+import { NavigationEnd, Router } from '@angular/router';
+import { CoreEvent, CoreService } from 'app/core/services/core.service';
 import * as Ps from 'perfect-scrollbar';
+import { Subscription } from "rxjs";
 import * as domHelper from '../../../../helpers/dom.helper';
-import { ThemeService } from '../../../../services/theme/theme.service';
+import { RestService, WebSocketService } from '../../../../services';
 import { LanguageService } from '../../../../services/language.service';
+import { ThemeService } from '../../../../services/theme/theme.service';
 import { ConsolePanelModalDialog } from '../../dialog/consolepanel/consolepanel-dialog.component';
-import {UUID} from 'angular2-uuid';
 
 @Component({
   selector: 'app-admin-layout',
@@ -28,10 +27,11 @@ export class AdminLayoutComponent implements OnInit, AfterViewChecked {
   consoleMsg: String = "";
   hostname: string;
   consoleMSgList: any[] = [];
-  public is_freenas: Boolean = window.localStorage['is_freenas'];
+  public product_type = window.localStorage['product_type'];
   public logoPath: string = 'assets/images/light-logo.svg';
   public logoTextPath: string = 'assets/images/light-logo-text.svg';
   public currentTheme: string = "";
+  public retroLogo: boolean = false;
   // we will just have to add to this list as more languages are added
 
   @ViewChild(MatSidenav, { static: false}) private sideNave: MatSidenav;
@@ -50,10 +50,10 @@ export class AdminLayoutComponent implements OnInit, AfterViewChecked {
     protected rest: RestService,
     protected ws: WebSocketService,
     public language: LanguageService,
-    public dialog: MatDialog, private loader: AppLoaderService) {
+    public dialog: MatDialog) {
     // detect server type
-    ws.call('system.is_freenas').subscribe((res)=>{
-      this.is_freenas = res;
+    ws.call('system.product_type').subscribe((res)=>{
+      this.product_type = res;
     });
 
     // Close sidenav after route change in mobile
@@ -79,8 +79,16 @@ export class AdminLayoutComponent implements OnInit, AfterViewChecked {
       sender:themeService
     }).subscribe((evt:CoreEvent)=>{
       let theme = evt.data;
-      this.logoPath = theme.logoPath;
-      this.logoTextPath = theme.logoTextPath;
+      //this.logoPath = theme.logoPath;
+      //this.logoTextPath = theme.logoTextPath;
+    });
+
+    // Subscribe to Preference Changes
+    core.register({
+      observerClass:this, 
+      eventName:"UserPreferencesChanged", 
+    }).subscribe((evt:CoreEvent)=>{
+      this.retroLogo = evt.data.retroLogo ? evt.data.retroLogo : false;
     });
 
     // Listen for system information changes
@@ -159,32 +167,33 @@ export class AdminLayoutComponent implements OnInit, AfterViewChecked {
   }
 
   checkIfConsoleMsgShows() {
-    this.rest.get('system/advanced', { limit: 0 }).subscribe((res) => {
-      this.onShowConsoleFooterBar(res.data['adv_consolemsg']);    
-    });
+    this.ws.call('system.advanced.config', [])
+      .subscribe(res => this.onShowConsoleFooterBar(res.consolemsg));
   }
 
   getLogConsoleMsg() {
     let subName = "filesystem.file_tail_follow:/var/log/messages:500";
-    let neededNumberconsoleMsg = 3; // Just 3 messages for footer bar
 
     this.ws.sub(subName).subscribe((res) => {
       if(res && res.data && typeof res.data === 'string'){
-        this.consoleMsg = this.accumulateConsoleMsg(res.data, neededNumberconsoleMsg);
+        this.consoleMsg = this.accumulateConsoleMsg(res.data, 3);
       }
     });
   }
 
   accumulateConsoleMsg(msg, num) {
     let msgs = "";
+    const msgarr = msg.split("\n");
 
-    if(msg != "") {
       // consoleMSgList will store just 500 messages.
-      this.consoleMSgList.push(msg);
-      if(this.consoleMSgList.length > 500) {
-        this.consoleMSgList.shift();
+    for (let i = 0; i < msgarr.length; i++) {
+      if (msgarr[i] !== "") {
+        this.consoleMSgList.push(msgarr[i]);
       }
-    }    
+    }
+    while (this.consoleMSgList.length > 500) {
+      this.consoleMSgList.shift();
+    }
     if(num > 500) {
       num = 500;
     }
@@ -192,7 +201,7 @@ export class AdminLayoutComponent implements OnInit, AfterViewChecked {
       num = this.consoleMSgList.length;
     }
     for (let i = this.consoleMSgList.length - 1; i >= this.consoleMSgList.length - num; --i) {
-      msgs = this.consoleMSgList[i] + msgs;
+      msgs = this.consoleMSgList[i] + "\n" + msgs;
     }
 
     return msgs;

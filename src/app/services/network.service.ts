@@ -1,10 +1,12 @@
 
 
 import {Injectable} from '@angular/core';
+import { FormControl, FormGroup } from '@angular/forms'
 import {RestService} from './rest.service'
 import {WebSocketService} from './ws.service';
+import * as isCidr from 'is-cidr';
 
-@Injectable()
+@Injectable({ providedIn: 'root'})
 export class NetworkService {
 
   public ipv4_regex = /^((25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})\.){3}(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})$/;
@@ -18,6 +20,7 @@ export class NetworkService {
   public ipv4_or_ipv6 = new RegExp("(" + this.ipv6_regex.source + ")|(" + this.ipv4_regex.source + ")");
   public ipv4_or_ipv6_cidr = new RegExp("(" + this.ipv6_cidr_regex.source + ")|(" + this.ipv4_cidr_regex.source + ")");
   public ipv4_or_ipv6_cidr_optional = new RegExp("(" + this.ipv6_cidr_optional_regex.source + ")|(" + this.ipv4_cidr_optional_regex.source + ")");
+  public ipv4_or_ipv6_cidr_or_none = new RegExp("("+ this.ipv4_or_ipv6_cidr + ")?");
 
   public hostname_regex = /^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$/;
 
@@ -29,30 +32,16 @@ export class NetworkService {
 
   constructor(protected rest: RestService, protected ws: WebSocketService) {};
 
-  getVlanNicChoices() {
-    return this.ws.call('notifier.choices',
-                        [ 'NICChoices', [ false, true, true, true, false ] ]);
-  }
-
   getVlanParentInterfaceChoices() {
     return this.ws.call('interface.vlan_parent_interface_choices');
-  }
-
-  getInterfaceNicChoices() {
-    return this.ws.call('notifier.choices', [ 'NICChoices', [] ]);
-  }
-
-  getLaggNicChoices() {
-    return this.ws.call('notifier.choices',
-                        [ 'NICChoices', [ true, false, true ] ]);
   }
 
   getLaggPortsChoices(id = null) {
     return this.ws.call('interface.lag_ports_choices', [id]);
   }
 
-  getLaggProtocolTypes() {
-    return this.ws.call('notifier.choices', [ 'LAGGType' ]);
+  getLaggProtocolChoices() {
+    return this.ws.call('interface.lag_supported_protocols', []);
   }
 
   getBridgeMembersChoices(id = null) {
@@ -82,4 +71,12 @@ export class NetworkService {
           return {label : String((33 - i) * 4), value : String((33 - i) * 4)};
         });
   }
+
+  authNetworkValidator(str) {
+    if (isCidr.v4(str) || isCidr.v6(str)) {
+      return true;
+    }
+    return false;
+  }
+
 }

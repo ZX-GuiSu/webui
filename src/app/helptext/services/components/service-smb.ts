@@ -1,10 +1,13 @@
 import { T } from '../../../translate-marker';
 import { Validators } from '@angular/forms';
-import { greaterThan } from "app/pages/common/entity/entity-form/validators/compare-validation";
 import { regexValidator } from '../../../pages/common/entity/entity-form/validators/regex-validation';
 import globalHelptext from '../../../helptext/global-helptext';
 
 export default {
+cifs_srv_fieldset_netbios: T('NetBIOS'),
+cifs_srv_fieldset_idmap: T('IDMAP'),
+cifs_srv_fieldset_other: T('Other Options'),
+
 cifs_srv_netbiosname_placeholder: T('NetBIOS Name'),
 cifs_srv_netbiosname_tooltip: T('Automatically populated with the original hostname\
  of the system. This name is limited to 15 characters and\
@@ -41,11 +44,11 @@ cifs_srv_unixcharset_tooltip: T('Default is UTF-8 which supports all characters 
 cifs_srv_loglevel_placeholder: T('Log Level'),
 cifs_srv_loglevel_tooltip: T('Choices are <i>Minimum, Normal, or Debug</i>.'),
 cifs_srv_loglevel_options: [
-  { label: 'None', value: '0' },
-  { label: 'Minimum', value: '1' },
-  { label: 'Normal', value: '2' },
-  { label: 'Full', value: '3' },
-  { label: 'Debug', value: '10' },
+  { label: 'None', value: 'NONE' },
+  { label: 'Minimum', value: 'MINIMUM' },
+  { label: 'Normal', value: 'NORMAL' },
+  { label: 'Full', value: 'FULL' },
+  { label: 'Debug', value: 'DEBUG' },
 ],
 
 cifs_srv_syslog_placeholder: T('Use syslog only'),
@@ -57,6 +60,9 @@ cifs_srv_localmaster_tooltip: T('Set to determine if the system participates in\
  a browser election. Leave unset when the network contains an AD\
  or LDAP server, or when Vista or Windows 7 machines\
  are present.'),
+
+cifs_srv_aapl_extensions_placeholder: T('Enable Apple SMB2/3 Protocol Extensions'),
+cifs_srv_aapl_extensions_tooltip: T('Enable Apple SMB2/3 Protocol Extensions. This is required for Time Machine support.'),
 
 cifs_srv_guest_placeholder: T('Guest Account'),
 cifs_srv_guest_tooltip: T('Account to be used for guest access. Default is\
@@ -75,9 +81,6 @@ cifs_srv_smb_options_placeholder: T('Auxiliary Parameters'),
 cifs_srv_smb_options_tooltip: T('Enter additional <b>smb.conf</b> options. See the <a href="http://www.oreilly.com/openbook/samba/book/appb_02.html"\
  target="_blank">Samba Guide</a>\
  for more information on these settings.'),
-
-cifs_srv_zeroconf_placeholder: T('Zeroconf share discovery'),
-cifs_srv_zeroconf_tooltip: T('Enable if Mac clients will be connecting to the SMB share.'),
 
 cifs_srv_ntlmv1_auth_placeholder: T('NTLMv1 Auth'),
 cifs_srv_ntlmv1_auth_tooltip: T('Off by default. When set,\
@@ -103,7 +106,7 @@ idmap_tdb_range_high_tooltip: T('The ending UID/GID for which this system is aut
  Any UID/GID higher than this value is ignored.\
  This avoids accidental UID/GID overlaps between local\
  and remotely defined IDs.'),
- idmap_tdb_range_high_validation: [greaterThan('idmap_tdb_range_low'), regexValidator(/^\d+$/)], 
+
 
 cifs_srv_enable_smb1_placeholder: T('Enable SMB1 support'),
 cifs_srv_enable_smb1_tooltip: T('Use this option to allow legacy SMB clients to connect to the\

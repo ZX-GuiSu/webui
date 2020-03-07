@@ -5,7 +5,7 @@ import * as _ from 'lodash';
 import { EntityFormService } from '../../../../pages/common/entity/entity-form/services/entity-form.service';
 import { TranslateService } from '@ngx-translate/core';
 
-import { RestService, WebSocketService, SystemGeneralService, NetworkService } from '../../../../services/';
+import { RestService, WebSocketService, SystemGeneralService, NetworkService, VmService } from '../../../../services/';
 import { EntityUtils } from '../../../common/entity/utils';
 import { AppLoaderService } from '../../../../services/app-loader/app-loader.service';
 import helptext from '../../../../helptext/vm/devices/device-add-edit';
@@ -293,7 +293,8 @@ export class DeviceEditComponent implements OnInit {
               protected systemGeneralService: SystemGeneralService,
               protected networkService: NetworkService,
               protected dialogService: DialogService,
-              private core:CoreService) {}
+              private core:CoreService,
+              protected vmService: VmService) {}
 
 
   preInit() {
@@ -315,14 +316,11 @@ export class DeviceEditComponent implements OnInit {
         value: nicId
       }));
     });
-    this.ws.call('notifier.choices', ['VM_NICTYPES']).subscribe(
-      (res) => {
-        this.nicType = _.find(this.nicFieldConfig, { name: "type" });
-        res.forEach((item) => {
-          this.nicType.options.push({ label: item[1], value: item[0] });
-        });
-      }
-    );
+
+    this.nicType = _.find(this.nicFieldConfig, { name: "type" });
+    this.vmService.getNICTypes().forEach((item) => {
+      this.nicType.options.push({ label: item[1], value: item[0] });
+    });
   }
   //Setting values coming from backend and populating formgroup with it.
   setgetValues(activeformgroup, deviceInformation) {
@@ -379,6 +377,9 @@ export class DeviceEditComponent implements OnInit {
 
     this.activeFormGroup = this.cdromFormGroup;
     await this.ws.call('vm.device.query',[[["id", "=", this.deviceid]]]).subscribe((res) => {
+      if (res[0].attributes.physical_sectorsize !== undefined && res[0].attributes.logical_sectorsize !== undefined) {
+        res[0].attributes['sectorsize'] = res[0].attributes.logical_sectorsize === null ? 0 : res[0].attributes.logical_sectorsize;
+      }
       const deviceInformation = {...res[0].attributes, ...{ 'order' : res[0].order }};
       this.vminfo = res[0];
       res = res[0].dtype;
@@ -454,6 +455,9 @@ export class DeviceEditComponent implements OnInit {
       const deviceValue = _.cloneDeep(this.activeFormGroup.value);
       const deviceOrder = deviceValue['order'];
       delete deviceValue.order;
+      deviceValue['physical_sectorsize'] = deviceValue['sectorsize'] === 0 ? null : deviceValue['sectorsize'];
+      deviceValue['logical_sectorsize'] = deviceValue['sectorsize'] === 0 ? null : deviceValue['sectorsize'];
+      delete deviceValue['sectorsize'];
       const payload = {
         "dtype": this.vminfo.dtype,
         "attributes":deviceValue,

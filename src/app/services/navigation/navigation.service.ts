@@ -23,7 +23,6 @@ interface IChildItem {
 export class NavigationService {
   // all menu for truenas features
   public turenasFeatures = [
-    { menu: 'system', sub: 'proactivesupport' },
     { menu: 'system', sub: 'viewenclosure' }
   ];
 
@@ -73,7 +72,7 @@ export class NavigationService {
         { name: T('ACME DNS'), state: 'acmedns' },
         { name: T('Failover'), state: 'failover', disabled: true },
         { name: T('Support'), state: 'support' },
-        { name: T('Proactive Support'), state: 'proactivesupport', disabled: true },
+        { name: T('2FA'), state: 'two-factor' },
       ]
     },
     {
@@ -102,11 +101,11 @@ export class NavigationService {
       icon: 'device_hub',
       state: 'network',
       sub: [
+        { name: T('Network Summary'), state: 'summary' },
         { name: T('Global Configuration'), state: 'configuration' },
         { name: T('Interfaces'), state: 'interfaces' },
-        { name: T('IPMI'), state: 'ipmi', disabled: false },
-        { name: T('Network Summary'), state: 'summary' },
         { name: T('Static Routes'), state: 'staticroutes' },
+        { name: T('IPMI'), state: 'ipmi', disabled: false },
       ]
     },
     {

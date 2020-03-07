@@ -4,6 +4,8 @@ import { DialogService } from 'app/services';
 import { AppLoaderService } from '../../../../services/app-loader/app-loader.service';
 import { WebSocketService } from '../../../../services/ws.service';
 import helptext from '../../../../helptext/account/group-list';
+import { PreferencesService } from 'app/core/services/preferences.service';
+import { T } from '../../../../translate-marker';
 
 @Component({
   selector : 'app-group-list',
@@ -11,33 +13,58 @@ import helptext from '../../../../helptext/account/group-list';
 })
 export class GroupListComponent {
   public title = "Groups";
-  protected resource_name = 'account/groups/';
+  protected queryCall = 'group.query';
   protected route_add: string[] = ['account', 'groups', 'add' ];
-  protected route_add_tooltip = "Add Group";
+  protected route_add_tooltip = T("Add Group");
   protected route_edit: string[] = [ 'account', 'groups', 'edit' ];
   protected route_delete: string[] = [ 'account', 'groups', 'delete' ];
   protected entityList: any;
   protected loaderOpen = false;
+  protected globalConfig = {
+    id: "config",
+    onClick: () => {
+      this.toggleBuiltins();
+    }
+  };
+  
   public columns: Array<any> = [
-    {name : 'Group', prop : 'bsdgrp_group', always_display: true},
-    {name : 'GID', prop : 'bsdgrp_gid'},
-    {name : 'Builtin', prop : 'bsdgrp_builtin'},
-    {name : 'Permit Sudo', prop : 'bsdgrp_sudo'},
+    {name : 'Group', prop : 'group', always_display: true},
+    {name : 'GID', prop : 'gid'},
+    {name : 'Builtin', prop : 'builtin'},
+    {name : 'Permit Sudo', prop : 'sudo'},
+    {name : 'Samba Authentication', prop: 'smb', hidden: true}
   ];
-  public rowIdentifier = 'bsdgrp_group';
+  public rowIdentifier = 'group';
   public config: any = {
     paging : true,
     sorting : {columns : this.columns},
     deleteMsg: {
-      title: 'Group',
-      key_props: ['bsdgrp_group']
+      title: T('Group'),
+      key_props: ['group']
     },
   };
 
-  constructor(private _router: Router, protected dialogService: DialogService, protected loader: AppLoaderService,protected ws: WebSocketService) { }
+  constructor(private _router: Router, protected dialogService: DialogService, 
+    protected loader: AppLoaderService,protected ws: WebSocketService,
+    protected prefService: PreferencesService){ }
+
+  resourceTransformIncomingRestData(data) {
+    // Default setting is to hide builtin groups 
+    if (this.prefService.preferences.hide_builtin_groups) {
+      let newData = []
+      data.forEach((item) => {
+        if (!item.builtin) {
+          newData.push(item);
+        }
+      }) 
+      return data = newData;
+    }
+    return data;
+  }
+
   afterInit(entityList: any) { this.entityList = entityList; }
   isActionVisible(actionId: string, row: any) {
-    if (actionId === 'delete' && row.bsdgrp_builtin === true) {
+    if (actionId === 'delete' && row.builtin === true) {
       return false;
     }
     return true;
@@ -46,7 +73,7 @@ export class GroupListComponent {
   getActions(row) {
     const actions = [];
     actions.push({
-      id: row.bsdgrp_group,
+      id: row.group,
       name: helptext.group_list_actions_id_member,
       label : helptext.group_list_actions_label_member,
       icon: 'people',
@@ -55,9 +82,9 @@ export class GroupListComponent {
           [ "account", "groups", "members", members.id ]));
       }
     });
-    if (row.bsdgrp_builtin === !true){
+    if (row.builtin === !true){
       actions.push({
-        id: row.bsdgrp_group,
+        id: row.group,
         icon: 'edit',
         label : helptext.group_list_actions_label_edit,
         name: helptext.group_list_actions_id_edit,
@@ -67,7 +94,7 @@ export class GroupListComponent {
         }
       })
       actions.push({
-        id: row.bsdgrp_group,
+        id: row.group,
         icon: 'delete',
         name: 'delete',
         label : helptext.group_list_actions_label_delete,
@@ -111,4 +138,22 @@ export class GroupListComponent {
   checkbox_confirm_show(id: any){
     return true;
   }
+
+  toggleBuiltins() {
+    let show;
+    this.prefService.preferences.hide_builtin_groups ? show = helptext.builtins_dialog.show :
+      show = helptext.builtins_dialog.hide;
+      this.dialogService.confirm(show + helptext.builtins_dialog.title, 
+        show + helptext.builtins_dialog.message, true, show)
+        .subscribe((res) => {
+         if (res) {
+            this.prefService.preferences.hide_builtin_groups = !this.prefService.preferences.hide_builtin_groups;
+            this.prefService.savePreferences();
+            this.entityList.needTableResize = false;
+            this.entityList.getData();
+         }
+      })
+  }
+        
+  
 }

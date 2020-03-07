@@ -220,6 +220,16 @@ span.passive{
 
 .platform-logo-wrapper{
   padding-top:12px;
+  color: var(--primary-color-txt);
+}
+
+.platform-logo-wrapper .mat-icon{
+  width:auto;
+  height: 3rem;
+}
+
+.platform-logo-wrapper .mat-icon.retro{
+  height:2.4rem;
 }
 
 .product-image.truenas{
@@ -232,11 +242,15 @@ span.passive{
 }
 
 .freenas .mat-icon.generic{
-  width:50%;
+  width:calc(240px * 0.5);
   height:auto;
 }
 
 img.platform-logo{
+  width: 10rem;
+}
+
+.xs.carousel img.platform-logo{
   width: 70%;
 }
 
@@ -255,6 +269,29 @@ img.platform-logo{
 
 .ha-node-status{
   font-weight:500;
+}
+
+.right{
+  position:relative;
+}
+
+.ha-status .spinner-wrapper,
+.ha-status h3{
+  width: auto;
+  height: auto;
+  text-align: center;
+  top: 49%;
+  position: relative;
+}
+
+div.generic.alert {
+  text-align:center;
+}
+
+div.generic.alert .mat-icon{
+  width:auto;
+  height:auto;
+  font-size:48px;
 }
 
 .left.passive .product-image img {
@@ -291,6 +328,10 @@ img.platform-logo{
   width:auto;
   height:28%;
   margin: 21% 0 8px;
+}
+
+.xs.widget .product-image.truenas img#X10{
+  margin: 8% 0 5%;
 }
 
 .xs.widget img.platform-logo{
@@ -332,6 +373,11 @@ img.platform-logo{
 .xs.widget.generic-hardware .product-image.freenas{
   margin-top:50%;
 }
+
+.xs.widget.generic-hardware .product-image.freenas .mat-icon{
+  margin-top:48px;
+}
+
 .xs.widget.generic-hardware .product-image.freenas .certified-badge{
   bottom:-40%;
   height:25%;
@@ -347,5 +393,6 @@ img.platform-logo{
   left:16px;
   z-index:2;
 }
+
 
 

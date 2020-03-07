@@ -34,7 +34,7 @@ export class EntityUtils {
           const element = document.getElementById(i);
           if (element) {
             if (entity.conf && entity.conf.advanced_field && 
-              _.indexOf(entity.conf.advanced_field, i) > 0 &&
+              _.indexOf(entity.conf.advanced_field, i) > -1 &&
               entity.conf.isBasicMode) {
                 entity.conf.isBasicMode = false;
               }
@@ -70,10 +70,14 @@ export class EntityUtils {
 
     if (res.extra && (targetFieldConfig || entity.fieldConfig || entity.wizardConfig)) {
       let scroll = false;
+      if (res.extra.excerpt) {
+        this.errorReport(res, dialog);
+      }
       for (let i = 0; i < res.extra.length; i++) {
-        const field = res.extra[i][0].split('.').pop();
+        let field = res.extra[i][0].split('.');
         const error = res.extra[i][1];
 
+        field = field[1];
         let fc = _.find(entity.fieldConfig, {'name' : field}) || (entity.getErrorField ? entity.getErrorField(field) : undefined);
         let stepIndex;
         if (entity.wizardConfig) {
@@ -91,7 +95,7 @@ export class EntityUtils {
           const element = document.getElementById(field);
           if (element) {
             if (entity.conf && entity.conf.advanced_field && 
-              _.indexOf(entity.conf.advanced_field, field) > 0 &&
+              _.indexOf(entity.conf.advanced_field, field) > -1 &&
               entity.conf.isBasicMode) {
                 entity.conf.isBasicMode = false;
               }

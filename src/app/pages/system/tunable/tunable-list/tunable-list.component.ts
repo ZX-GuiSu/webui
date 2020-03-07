@@ -2,7 +2,8 @@ import { ApplicationRef, Component, Injector, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import * as _ from 'lodash';
 import { Subscription } from 'rxjs';
-import { RestService, WebSocketService } from '../../../../services/';
+import { WebSocketService } from '../../../../services/';
+import { T } from '../../../../translate-marker';
 
 @Component({
   selector: 'system-tunables-list',
@@ -12,7 +13,9 @@ import { RestService, WebSocketService } from '../../../../services/';
 export class TunableListComponent {
 
   public title = "Tunables";
-  protected resource_name: string = 'system/tunable';
+  protected wsDelete = "tunable.delete";
+  public queryCall:string = 'tunable.query';
+
   protected route_delete: string[] = ['system', 'tunable', 'delete'];
   protected route_edit: string[] = ['system', 'tunable', 'edit'];
   protected route_success: string[] = [ 'system', 'tunable' ];
@@ -21,30 +24,59 @@ export class TunableListComponent {
 
   public busy: Subscription;
   public sub: Subscription;
+  protected entityList: any;
 
-  constructor(protected router: Router, protected aroute: ActivatedRoute,
-    protected rest: RestService, protected ws: WebSocketService,
-    protected _injector: Injector, protected _appRef: ApplicationRef) {}
+  public wsMultiDelete = 'core.bulk';
+  public multiActions: Array < any > = [
+    {
+      id: "mdelete",
+      label: T("Delete"),
+      icon: "delete",
+      enable: true,
+      ttpos: "above",
+      onClick: (selected) => {
+        this.entityList.doMultiDelete(selected);
+      }
+    }
+  ];
 
   public columns: Array < any > = [
-    { name: 'Variable', prop: 'tun_var', always_display: true },
-    { name: 'Value', prop: 'tun_value' },
-    { name: 'Type', prop: 'tun_type' },
-    { name: 'Comment', prop: 'tun_comment' },
-    { name: 'Enabled', prop: 'tun_enabled' },
+    { name: T('Variable'), prop: 'var', always_display: true },
+    { name: T('Value'), prop: 'value' },
+    { name: T('Type'), prop: 'type' },
+    { name: T('Description'), prop: 'comment' },
+    { name: T('Enabled'), prop: 'enabled' },
   ];
-  public rowIdentifier = 'tun_var';
+  public rowIdentifier = 'var';
 
   public config: any = {
     paging: true,
     sorting: { columns: this.columns },
     deleteMsg: {
-      title: 'Tunable',
-      key_props: ['tun_var']
+      title: T('Tunable'),
+      key_props: ['var']
     },
+    multiSelect: true
   }
 
+  constructor(protected router: Router, 
+    protected aroute: ActivatedRoute,
+    protected ws: WebSocketService,
+    protected _injector: Injector, 
+    protected _appRef: ApplicationRef) {}
+
   preInit(entityList: any) {
+    this.entityList = entityList;
     this.sub = this.aroute.params.subscribe(params => {});
+  }
+
+  wsMultiDeleteParams(selected: any) {
+    let params: Array<any> = [this.wsDelete];
+    let selectedId = [];
+    for (const i in selected) {
+     selectedId.push([selected[i].id]);
+    }
+    params.push(selectedId);
+    return params;
   }
 }

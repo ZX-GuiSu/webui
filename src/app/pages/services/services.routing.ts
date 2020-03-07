@@ -18,6 +18,8 @@ import {ServiceSSHComponent} from './components/service-ssh/';
 import {ServiceTFTPComponent} from './components/service-tftp/';
 import {ServiceUPSComponent} from './components/service-ups/';
 import {ServiceWebdavComponent} from './components/service-webdav/';
+import { ServiceOpenvpnClientComponent } from './components/service-openvpn/service-openvpn-client';
+import { ServiceOpenvpnServerComponent } from './components/service-openvpn/service-openvpn-server';
 import {Services} from './services.component';
 
 export const routes: Routes = [
@@ -49,31 +51,35 @@ export const routes: Routes = [
   {
     data: { title: 'Rsync', breadcrumb: 'Rsync'},
     path : 'rsync',
-    component : ServiceRSYNCComponent,
     children: [
       {
         path: '',
-        redirectTo: 'configure',
-      },
-      {
-        path: 'configure',
-        component: CconfigureRYSNCComponent,
-        data: { title: 'Configure', breadcrumb: 'Configure' },
-      },
-      {
-        path: 'rsync-module',
-        component: RSYNCconfigurationListComponent,
-        data: { title: 'RSYNCModule', breadcrumb: 'RSYNCModule' },
-      },
-      {
-        path: 'rsync-module/add',
-        component: RYSNCConfigurationFormComponent,
-        data: { title: 'Add', breadcrumb: 'Add' },
-      },
-      {
-        path : 'rsync-module/edit/:pk', component : RYSNCConfigurationFormComponent,
-        data: {title: 'Edit', breadcrumb:'Edit' }
-      },
+        data: { title: 'Rsync', breadcrumb: 'Rsync'},
+        children: [
+          {
+            path: '',
+            redirectTo: 'configure',
+          },
+          {
+            path: ':pk',
+            component: ServiceRSYNCComponent,
+            data: { title: '', breadcrumb: ''},
+          },
+          {
+            path: 'rsync-module',
+            data: { title: 'Rsync Module', breadcrumb: 'Rsync Module'},
+            children: [{
+              path: 'add',
+              component: RYSNCConfigurationFormComponent,
+              data: { title: 'Add', breadcrumb: 'Add' },
+            },{
+              path: 'edit/:pk',
+              component: RYSNCConfigurationFormComponent,
+              data: { title: 'Edit', breadcrumb: 'Edit' },
+            }]
+          },
+        ]
+      }
     ]
   },
   {
@@ -120,6 +126,16 @@ export const routes: Routes = [
     data: { title: 'S3', breadcrumb: 'S3'},
     path : 's3',
     component : ServiceS3Component,
+  },
+  {
+    data: { title: 'OpenVPN', breadcrumb: 'OpenVPN Client'},
+    path : 'openvpn_client',
+    component : ServiceOpenvpnClientComponent,
+  },
+  {
+    data: { title: 'OpenVPN', breadcrumb: 'OpenVPN Server'},
+    path : 'openvpn_server',
+    component : ServiceOpenvpnServerComponent,
   }
 ];
 

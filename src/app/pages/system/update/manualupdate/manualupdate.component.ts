@@ -1,20 +1,20 @@
 import { ApplicationRef, Component, Injector } from '@angular/core';
 import { FormGroup } from '@angular/forms';
-import { MatDialog, MatSnackBar } from '@angular/material';
+import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
+import { T } from '../../../../translate-marker';
 import { helptext_system_update as helptext } from 'app/helptext/system/update';
 import * as _ from 'lodash';
-import { RestService, WebSocketService, SystemGeneralService } from '../../../../services/';
-import { AppLoaderService } from '../../../../services/app-loader/app-loader.service';
+import { WebSocketService, SystemGeneralService } from '../../../../services/';
 import { DialogService } from '../../../../services/dialog.service';
-import { DialogFormConfiguration } from '../../../common/entity/entity-dialog/dialog-form-configuration.interface';
 import { FieldConfig } from '../../../common/entity/entity-form/models/field-config.interface';
 import { MessageService } from '../../../common/entity/entity-form/services/message.service';
 import { EntityJobComponent } from '../../../common/entity/entity-job/entity-job.component';
 import { CoreEvent } from 'app/core/services/core.service';
 import { ViewControllerComponent } from 'app/core/components/viewcontroller/viewcontroller.component';
 import { EntityUtils } from '../../../../pages/common/entity/utils';
+import { take } from 'rxjs/operators';
 
 @Component({
   selector: 'app-manualupdate',
@@ -30,7 +30,7 @@ export class ManualUpdateComponent extends ViewControllerComponent {
   public isHA = false;
   public isUpdateRunning = false;
   public updateMethod: string = 'update.update';
-  public saveSubmitText ="Apply Update";
+  public saveSubmitText = T("Apply Update");
   protected fieldConfig: FieldConfig[] = [
     {
       type: 'paragraph',
@@ -67,52 +67,35 @@ export class ManualUpdateComponent extends ViewControllerComponent {
       isHidden: true
     }
   ];
-  protected saveConfigFieldConf: FieldConfig[] = [
-    {
-      type: 'checkbox',
-      name: 'secretseed',
-      placeholder: helptext.secretseed.placeholder
-    }
-  ];
-  public saveConfigFormConf: DialogFormConfiguration = {
-    title: "Save Config",
-    fieldConfig: this.saveConfigFieldConf,
-    method_ws: 'core.download',
-    saveButtonText: helptext.save_config_form.button_text,
-    customSubmit: this.saveCofigSubmit,
-  }
+
   public save_button_enabled = false;
 
   constructor(
     protected router: Router,
     protected route: ActivatedRoute,
-    protected rest: RestService,
     protected ws: WebSocketService,
     protected _injector: Injector,
     protected _appRef: ApplicationRef,
     public messageService: MessageService,
     protected dialog: MatDialog,
-    protected dialogservice: DialogService,
-    public snackBar: MatSnackBar,
     public translate: TranslateService,
     private dialogService: DialogService,
-    private loader: AppLoaderService,
     private systemService: SystemGeneralService,
   ) {
     super();
-    
+
     this.core.register({
      observerClass: this,
      eventName: "SysInfo"
     }).subscribe((evt: CoreEvent) => {
        _.find(this.fieldConfig, {name: 'version'}).paraText += evt.data.version;
     });
- 
+
     this.core.emit({name: "SysInfoRequest", sender:this});
   }
 
   preInit(entityForm: any) {
-    if (window.localStorage.getItem('is_freenas') === 'false') {
+    if (window.localStorage.getItem('product_type') === 'ENTERPRISE') {
       this.ws.call('failover.licensed').subscribe((is_ha) => {
         if (is_ha) {
           this.isHA = true;
@@ -147,7 +130,7 @@ export class ManualUpdateComponent extends ViewControllerComponent {
         ures[0].attributes.preferences['rebootAfterManualUpdate'] = form_res;
         this.ws.call('user.set_attribute', [1, 'preferences', ures[0].attributes.preferences]).subscribe((res)=>{
         })
-  
+
       })
     })
 
@@ -166,6 +149,7 @@ export class ManualUpdateComponent extends ViewControllerComponent {
 
 
   customSubmit(entityForm: any) {
+    this.save_button_enabled = false;
     this.systemService.updateRunningNoticeSent.emit();
     this.ws.call('user.query',[[["id", "=",1]]]).subscribe((ures)=>{
       this.dialogRef = this.dialog.open(EntityJobComponent, { data: { "title": helptext.manual_update_action }, disableClose: true });
@@ -192,21 +176,25 @@ export class ManualUpdateComponent extends ViewControllerComponent {
           };
         } else  {
           this.dialogService.closeAllDialogs();
-          this.router.navigate(['/']); 
-          this.dialogService.confirm(helptext.ha_update.complete_title, 
-            helptext.ha_update.complete_msg, true, 
+          this.router.navigate(['/']);
+          this.dialogService.confirm(helptext.ha_update.complete_title,
+            helptext.ha_update.complete_msg, true,
             helptext.ha_update.complete_action,false, '','','','', true).subscribe(() => {
             });
         }
       })
       this.dialogRef.componentInstance.prefailure.subscribe((prefailure)=>{
         this.dialogRef.close(false);
-        this.dialogService.errorReport(helptext.manual_update_error_dialog.message, 
-          `${prefailure.status.toString()} ${prefailure.statusText}`)
+        this.dialogService.errorReport(helptext.manual_update_error_dialog.message,
+          `${prefailure.status.toString()} ${prefailure.statusText}`);
+          this.save_button_enabled = true;
       })
-      this.dialogRef.componentInstance.failure.subscribe((failure)=>{
-        this.dialogRef.close(false);
-        this.dialogService.errorReport(failure.error,failure.state,failure.exception)
+      this.dialogRef.componentInstance.failure
+        .pipe(take(1))
+        .subscribe((failure)=>{
+          this.dialogRef.close(false);
+          this.dialogService.errorReport(failure.error,failure.state,failure.exception);
+          this.save_button_enabled = true;
       })
     })
   }
@@ -232,38 +220,6 @@ updater(file: any, parent: any){
     parent.save_button_enabled = false;
   }
 }
-
-saveCofigSubmit(entityDialog) {
-  entityDialog.ws.call('system.info', []).subscribe((res) => {
-    let fileName = "";
-    if (res) {
-      const hostname = res.hostname.split('.')[0];
-      const date = entityDialog.datePipe.transform(new Date(),"yyyyMMddHHmmss");
-      fileName = hostname + '-' + res.version + '-' + date;
-      if (entityDialog.formValue['secretseed']) {
-        fileName += '.tar';
-      } else {
-        fileName += '.db';
-      }
-    }
-
-    entityDialog.ws.call('core.download', ['config.save', [{ 'secretseed': entityDialog.formValue['secretseed'] }], fileName])
-      .subscribe(
-        (succ) => {
-          entityDialog.snackBar.open("Opening download window. Make sure pop-ups are enabled in the browser.", "Success" , {
-            duration: 5000
-          });
-          window.open(succ[1]);
-          entityDialog.dialogRef.close();
-        },
-        (err) => {
-          entityDialog.snackBar.open("Check the network connection", "Failed" , {
-            duration: 5000
-          });
-        }
-      );
-    });
-  }
 
   showRunningUpdate(jobId) {
       this.dialogRef = this.dialog.open(EntityJobComponent, { data: { "title": "Update" }, disableClose: true });

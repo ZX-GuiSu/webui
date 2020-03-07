@@ -37,7 +37,9 @@ export class VdevComponent implements OnInit {
   public vdev_size_error = helptext.vdev_size_error;
   public vdev_size_error_2 = helptext.vdev_size_error_2;
   public vdev_disks_error;
+  public vdev_disks_size_error;
   public vdev_type_disabled = false;
+  private ten_mib = 10 * 1024 * 1024;
   protected mindisks = {'stripe': 1, 'mirror':2, 'raidz':3, 'raidz2':4, 'raidz3':5}
 
   public startingHeight: any;
@@ -55,7 +57,7 @@ export class VdevComponent implements OnInit {
         this.type = 'stripe';
       }
     } else {
-      this.type = this.group;
+      this.type = 'stripe';
     }
     if (this.initial_values['disks']) {
       for (let i = 0; i < this.initial_values['disks'].length; i++) {
@@ -119,7 +121,8 @@ export class VdevComponent implements OnInit {
     let stripeSize = 0;
     let smallestdisk = 0;
     let estimate = 0;
-    const swapsize = 2 * 1024 * 1024 * 1024;
+    const swapsize = this.manager.swapondrive * 1024 * 1024 * 1024;
+    this.vdev_disks_size_error = false;
     for (let i = 0; i < this.disks.length; i++) {
       const size = parseInt(this.disks[i].real_capacity, 10) - swapsize;
       stripeSize += size;
@@ -127,7 +130,8 @@ export class VdevComponent implements OnInit {
         smallestdisk = size;
         this.firstdisksize = size;
       }
-      if (size !== smallestdisk) {
+      if (size > smallestdisk + this.ten_mib || size < smallestdisk - this.ten_mib) {
+        this.vdev_disks_size_error = true;
         this.error = this.diskSizeErrorMsg;
       }
       if (this.disks[i].real_capacity < smallestdisk) {

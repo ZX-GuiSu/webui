@@ -4,6 +4,9 @@ import { matchOtherValidator } from "app/pages/common/entity/entity-form/validat
 import globalHelptext from '../../../helptext/global-helptext';
 
 export const helptext_sharing_iscsi = {
+  fieldset_target_basic: T('Basic Info'),
+  fieldset_target_group: T('iSCSI Group'),
+
   target_form_placeholder_name: T("Target Name"),
   target_form_tooltip_name: T(
     'The base name is automatically prepended if the target\
@@ -47,7 +50,11 @@ export const helptext_sharing_iscsi = {
 
   target_form_placeholder_delete: T("Delete"),
 
-  portal_form_placeholder_comment: T("Comment"),
+  fieldset_portal_basic: T('Basic Info'),
+  fieldset_portal_authgroup: T('Auth Method and Group'),
+  fieldset_portal_ip: T('IP Address'),
+
+  portal_form_placeholder_comment: T("Description"),
   portal_form_tooltip_comment: T(
     "Optional description. Portals are automatically assigned a numeric\
  group."
@@ -64,17 +71,18 @@ export const helptext_sharing_iscsi = {
   ),
 
   portal_form_placeholder_discovery_authgroup: T("Discovery Auth Group"),
-  portal_form_tooltip_discovery_authgroup: T(
-    "Select a Group ID created in <b>Authorized Access</b> if the\
- <b>Discovery Auth Method</b> is set to <i>CHAP</i> or\
- <i>Mutual CHAP</i>."
+  portal_form_tooltip_discovery_authgroup: T("Group ID created in \
+ Authorized Access. Required when the Discovery Auth Method is set to \
+ CHAP or Mutual CHAP."
   ),
 
   portal_form_placeholder_ip: T("IP Address"),
-  portal_form_tooltip_ip: T(
-    "Select the IP address associated with an interface\
- or the wildcard address of <i>0.0.0.0</i> (any interface)."
+  portal_form_tooltip_ip: T("Select the IP addresses to be listened on \
+ by the portal. Click ADD to add IP addresses with a different network \
+ port. The address <i>0.0.0.0</i> can be selected to listen on all IPv4 \
+ addresses, or <i>::</i> to listen on all IPv6 addresses."
   ),
+
   portal_form_validators_ip: [Validators.required],
 
   portal_form_placeholder_port: T("Port"),
@@ -94,6 +102,8 @@ export const helptext_sharing_iscsi = {
  the <i>Connected Initiators</i> list.'
   ),
 
+  all_placeholder_initiators: T("Allow All Initiators"),
+
   initiator_form_placeholder_initiators: T("Allowed Initiators (IQN)"),
   initiator_form_tooltip_initiators: T(
     'Initiators allowed access to this system. Enter an\
@@ -112,8 +122,10 @@ export const helptext_sharing_iscsi = {
  address to the list. Example: <i>192.168.2.0/24</i>.'
   ),
 
-  initiator_form_placeholder_comment: T("Comment"),
+  initiator_form_placeholder_comment: T("Description"),
   initiator_form_tooltip_comment: T("Any notes about initiators."),
+
+  fieldset_globalconf: T('Global Configuration'),
 
   globalconf_placeholder_basename: T("Base Name"),
   globalconf_tooltip_basename: T(
@@ -150,12 +162,9 @@ export const helptext_sharing_iscsi = {
  ${globalHelptext.ctrlrs} on the target and increase storage traffic\
  efficiency. Requires ALUA-capable, High Availability (HA) hardware.`),
 
-  globalconf_dialog_title: T("Enable service"),
-  globalconf_dialog_message: T("Enable this service?"),
-  globalconf_dialog_button: T("Enable Service"),
-
-  globalconf_snackbar_message: T("Service started"),
-  globalconf_snackbar_close: T("close"),
+  fieldset_extent_basic: T('Basic Info'),
+  fieldset_extent_type: T('Type'),
+  fieldset_extent_options: T('Compatability'),
 
   extent_placeholder_name: T("Extent name"),
   extent_tooltip_name: T(
@@ -165,9 +174,8 @@ export const helptext_sharing_iscsi = {
   extent_validators_name: [Validators.required],
 
   extent_placeholder_type: T("Extent type"),
-  extent_tooltip_type: T(
-    "<i>File</i> shares the contents of an individual file.\
- <i>Device</i> shares an entire device."),
+  extent_tooltip_type: T("<i>Device</i> provides virtual storage access to zvols, zvol snapshots, or physical devices.\
+  <i>File</i> provides virtual storage access to a single file."),
 
   extent_placeholder_disk: T("Device"),
   extent_tooltip_disk: T(
@@ -183,19 +191,16 @@ export const helptext_sharing_iscsi = {
   ),
 
   extent_placeholder_path: T("Path to the extent"),
-  extent_tooltip_path: T(
-    "Browse to an existing file. Create a new file by browsing to a\
- dataset and appending the file name to the path. Extents cannot be\
+  extent_tooltip_path: T("Browse to an existing file. Create a new file by browsing to a\
+ dataset and appending /<i>{filename.ext}</i> to the path. Extents cannot be\
  created inside a jail root directory."
   ),
   extent_validators_path: [Validators.required],
 
-  extent_placeholder_filesize: T("Extent size"),
-  extent_tooltip_filesize: T(
-    "Entering <i>0</i> uses the actual file size and requires that the\
+  extent_placeholder_filesize: T("Filesize"),
+  extent_tooltip_filesize: T("Entering <i>0</i> uses the actual file size and requires that the\
  file already exists. Otherwise, specify the file size for the new file."
   ),
-  extent_validators_filesize: [Validators.required],
 
   extent_placeholder_blocksize: T("Logical block size"),
   extent_tooltip_blocksize: T(
@@ -218,7 +223,7 @@ export const helptext_sharing_iscsi = {
  target="_blank">VAAI</a> Threshold Warning.'
   ),
 
-  extent_placeholder_comment: T("Comment"),
+  extent_placeholder_comment: T("Description"),
   extent_tooltip_comment: T("Notes about this extent."),
 
   extent_placeholder_insecure_tpc: T("Enable TPC"),
@@ -248,6 +253,13 @@ export const helptext_sharing_iscsi = {
     "Set to prevent the initiator from initializing this\
  LUN."
   ),
+
+  extent_placeholder_enabled: T('Enabled'),
+  extent_tooltip_enabled: T('Set to enable the iSCSI extent.'),
+
+  fieldset_group: T('Group'),
+  fieldset_user: T('User'),
+  fieldset_peeruser: T('Peer User'),
 
   authaccess_placeholder_tag: T("Group ID"),
   authaccess_tooltip_tag: T(
@@ -283,11 +295,11 @@ export const helptext_sharing_iscsi = {
     "Mutual secret password. Required when Peer User is set. Must be\
  different than the <i>Secret</i>."
   ),
-  authaccess_error_peersecret: T('Must match Peer Secret (Confirm) and be\
- between 12 and 16 characters in length. Cannot be the same as\
- Secret.'),
+  authaccess_error_duplicate_secrets: T('Secret and Peer Secret can not be the same.'),
 
   authaccess_placeholder_peersecret_confirm: T("Peer Secret (Confirm)"),
+
+  fieldset_associated_target: T('Associated Target'),
 
   associated_target_placeholder_target: T("Target"),
   associated_target_tooltip_target: T("Select an existing target."),
@@ -319,4 +331,49 @@ export const helptext_sharing_iscsi = {
 
   fc_initiators_placeholder: T('Connected Initiators'),
   fc_initiators_tooltip: T(''),
+
+  fc_update_dialog: {
+    title: T('Updated'),
+    text: T('Fibre Channel '),
+    msg: T(' update successful')
+  },
+
+  // wizard
+  step1_label: T("Create or Choose Block Device"),
+
+  name_placeholder: T("Name"),
+  name_tooltip: T("Keep the name short. Using a name longer than 63 characters can prevent accessing the block device."),
+
+  disk_placeholder: T("Device"),
+  disk_tooltip: T("Select the unformatted disk, controller, zvol, or zvol snapshot. Select\
+ <i>Create New</i> to create a new zvol."),
+
+  dataset_placeholder: T("Pool/Dataset"),
+  dataset_tooltip: T("Browse to an existing pool or dataset to store the new zvol."),
+
+  volsize_placeholder: T("Size"),
+  volsize_tooltip: T("Specify the size of the new zvol."),
+
+  volblocksize_placeholder: T("Block Size"),
+  volblocksize_tooltip: T("Only override the default if the initiator requires a different block size."),
+
+  usefor_placeholder: T("Sharing Platform"),
+  usefor_tooltip: T("Choose the platform that will use this share. The associated options are applied to this share."),
+
+  step2_label: T("Portal"),
+
+  portal_placeholder: T("Portal"),
+  portal_tooltip: T("Select an existing portal or choose <i>Create New</i> to configure a new portal."),
+
+  step3_label: T("Initiator"),
+
+  initiators_placeholder: T("Initiators"),
+  initiators_tooltip: T("Leave blank to allow all or enter a list of initiator hostnames separated by spaces."),
+
+  auth_network: {
+    placeholder: T("Authorized Networks"),
+    tooltip: T("Network addresses allowed to use this initiator. Leave blank to allow all networks or list network addresses with\
+ a CIDR mask. Separate multiple addresses with a space: <i>192.168.2.0/24 192.168.2.1/12</i>."),
+    error: T('Invalid network address list. Check for typos or missing CIDR netmasks and separate addresses with a space.')
+  }
 };

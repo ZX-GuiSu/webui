@@ -3,6 +3,9 @@ import { Validators } from '@angular/forms';
 import { matchOtherValidator } from '../../../pages/common/entity/entity-form/validators/password-validation';
 
 export default {
+fieldset_general: T('General Options'),
+fieldset_access: T('Credentials'),
+
 provider_placeholder : T('Provider'),
 provider_tooltip: T('Several providers are supported. If a specific \
  provider is not listed, select <i>Custom Provider</i> and enter the \
@@ -53,9 +56,7 @@ username_tooltip: T('Username for logging in to the provider and \
 
 password_placeholder : T('Password'),
 password_tooltip: T('Password for logging in to the provider and \
- updating the record.'),
-password_validation :
-        [ Validators.minLength(8), matchOtherValidator('password2') ],
+ updating the record. '),
 
 password2_placeholder : T('Confirm Password'),
 

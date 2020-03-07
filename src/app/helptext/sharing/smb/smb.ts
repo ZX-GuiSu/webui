@@ -2,8 +2,14 @@ import { T } from "app/translate-marker";
 import { Validators } from "@angular/forms";
 
 export const helptext_sharing_smb = {
+    fieldset_basic: T('Basic'),
+    fieldset_advanced: T('Advanced'),
+    fieldset_access: T('Access'),
+    fieldset_other: T('Other Options'),
+
     column_name: T('Name'),
     column_path: T('Path'),
+    column_comment: T('Description'),
 
     placeholder_path: T('Path'),
     tooltip_path: T('Select pool, dataset, or directory to share.'),
@@ -14,21 +20,21 @@ export const helptext_sharing_smb = {
     placeholder_name: T('Name'),
     tooltip_name: T('Enter a name for the share.'),
 
+    placeholder_comment: T("Description"),
+    tooltip_comment: T(
+      "Description of the share or notes on how it is used."
+    ),
+
     placeholder_home: T('Use as home share'),
-    tooltip_home: T('Set to allow this share to hold user home\
- directories. Only one share can be\
- the home share.\
- Note: Lower case names for user home\
- directories are strongly recommended, as Samba\
- maps usernames to all lower case. For example, the\
- username John will be mapped to a home directory\
- named john. If the <i>Path</i> to the home share\
- includes an upper case username, delete the existing user\
- and recreate it in <i>Accounts --> Users</i>\
- with an all lower case <i>Username</i>. Return\
- to <i>Sharing --> SMB</i> to create the home share,\
- and select the </i>Path</i> that contains the new\
- lower case username.'),
+    tooltip_home: T('Allows the share to host user home \
+ directories. Each user is given a personal home directory when \
+ connecting to the share which is not accessible by other users. This \
+ allows for a personal, dynamic share. Only one share can be used \
+ as the home share.'),
+
+    placeholder_purpose: T('Purpose'),
+    tooltip_purpose: T('Select a preset configuration for the share. This\
+ applies predetermined values and disables changing some share options.'),
 
    placeholder_timemachine: T('Time Machine'),
    tooltip_timemachine: T('Enable Time Machine backups on this share.'),
@@ -39,6 +45,9 @@ export const helptext_sharing_smb = {
  <b>Only</b> leave unset when creating a share on a\
  system that already has custom\
  ACLs configured.'),
+
+    placeholder_acl: T('Enable ACL'),
+    tooltip_acl: T('Enable ACL support for the SMB share'),
 
     placeholder_ro: T('Export Read Only'),
     tooltip_ro: T('Set to prohibit writes to this share'),
@@ -59,21 +68,17 @@ export const helptext_sharing_smb = {
  For example, <samp>crossrename:sizelimit={50}</samp> allows moves of \
  files up to 50 MiB in size.'),
 
-    placeholder_showhiddenfiles: T('Show Hidden Files'),
-    tooltip_showhiddenfiles: T('Set to disable the Windows <i>hidden</i> attribute\
- on a new Unix hidden file. Unix hidden filenames start\
- with a dot: <b>.foo</b>.\
- Existing files are not affected.'),
-
     placeholder_guestok: T('Allow Guest Access'),
-    tooltip_guestok: T('Privileges are the same as the guest account.\
- Guest access is disabled by default in Windows 10 version 1709 and\
- Windows Server version 1903. Additional client-side configuration is\
- required to provide guest access to these clients.'),
-
-    placeholer_guestonly: T('Only Allow Guest Access'),
-    tooltip_guestonly: T('Requires <b>Allow guest access</b> to also be set.\
- Forces guest access for all connections.'),
+    tooltip_guestok: T('Privileges are the same as the guest account. \
+ Guest access is disabled by default in Windows 10 version 1709 and \
+ Windows Server version 1903. Additional client-side configuration is \
+ required to provide guest access to these clients.<br><br> \
+ <i>MacOS clients:</i> Attempting to connect as a user that does not \
+ exist in FreeNAS <i>does not</i> automatically connect as the guest \
+ account. The <b>Connect As:</b> <i>Guest</i> option must be \
+ specifically chosen in MacOS to log in as the guest account. See the \
+ <a href="https://support.apple.com/guide/mac-help/connect-mac-shared-computers-servers-mchlp1140/" target="_blank">Apple documentation</a> \
+ for more details.'),
 
     placeholder_abe: T('Access Based Share Enumeration'),
     tooltip_abe: T('Restrict share visibility to users with read or write access\
@@ -88,12 +93,6 @@ export const helptext_sharing_smb = {
     tooltip_hostsdeny: T('Enter a list of denied hostnames or IP addresses.\
  Separate entries with a comma, space, or tab.'),
 
-    placeholder_vfsobjects: T('VFS Objects'),
-    tooltip_vfsobjects: T('Adds <a\
- href="--docurl--/sharing.html#avail-vfs-modules-tab"\
- target="blank">virtual file system modules</a> to\
- enhance functionality.'),
-
     placeholder_shadowcopy: T('Enable Shadow Copies'),
     tooltip_shadowcopy: T('Export ZFS snapshots as\
  <a href="https://docs.microsoft.com/en-us/windows/desktop/vss/shadow-copies-and-shadow-copy-sets"\
@@ -103,14 +102,37 @@ export const helptext_sharing_smb = {
     tooltip_auxsmbconf: T('Additional <b>smb5.conf</b> parameters not covered by\
  other option fields.'),
 
+    placeholder_aapl_name_mangling: T('Enable Apple-style Character'),
+    tooltip_aapl_name_mangling: T('Enable Apple-style character encoding for NTFS illegal characters.'),
+
+    placeholder_streams: T('Enable Alternate Data Streams'),
+    tooltip_streams: T('Enable support for Alternate Data Streams. Disabling support for streams will\
+ cause MacOS to write streams to files on the filesystem.'),
+
+    placeholder_durablehandle: T('Enable SMB2/3 durable handles'),
+    tooltip_durablehandle: T('Enable support for SMB2/3 durable handles. This parameter disables support\
+ for POSIX byte-range locks in Samba and may be unsuitable if multi-protocol (or local) access to the\
+ files is anticipated.'),
+
+    placeholder_fsrvp: T('Enable FSRVP'),
+    tooltip_fsrvp: T('Enable support for the File Server Remote VSS Protocol\
+ (<a href="https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-fsrvp" target="_blank">FSVRP</a>).\
+ This protocol allows RPC clients to manage snapshots of the specified SMB share. Share path must be a dataset\
+ mountpoint. Snapshots will have a prefix "fss-" followed by the timestamp for when the snapshot was taken.\
+ RPC users will not be able to delete snapshots that don\'t have this prefix.'),
+
+    placeholder_path_suffix: T('Path Suffix'),
+    tooltip_path_suffix: T('Append a suffix (possibly containing a macro) to the share\'s connect path.\
+ This can be used to provide unique shares on a per-user, per-computer, or per-IP address basis. See\
+ <a href="https://www.freebsd.org/cgi/man.cgi?query=smb.conf" target="_blank">smb.conf(5)</a> for\
+ list of supported macros. The connectpath _must_ be pre-staged before client connection.'),
+
     actions_basic_mode: T('Basic Mode'),
     actions_advanced_mode: T('Advanced Mode'),
 
-    action_edit_acl: T('Edit ACL'),
+    action_share_acl: T('Edit Share ACL'),
+    action_edit_acl: T('Edit Filesystem ACL'),
 
-    dialog_enable_service_title: T("Enable service"),
-    dialog_enable_service_message: T("Enable this service?"),
-    dialog_enable_service_button: T("Enable Service"),
     dialog_warning: T('Warning'),
     dialog_warning_message: T("Setting default permissions will reset the permissions of this share and any others within its path."),
 
@@ -118,6 +140,46 @@ export const helptext_sharing_smb = {
     dialog_edit_acl_message: T("Configure permissions for this share's dataset now?"),
     dialog_edit_acl_button: T("Configure now"),
     
-    snackbar_close: T('close'),
-    snackbar_service_started: T("Service started")
+    restart_smb_dialog: {
+       title: T('Restart SMB Service?'),
+       message: T('Enabling <em>Time Machine</em> on an SMB share requires a restart of the SMB service.'),
+       action_btn: T('Save and Restart SMB Now'),
+       cancel_btn: T('Save Without Restarting')
+    },
+    restarted_smb_dialog: {
+       title: T('SMB Service'),
+       message: T('The SMB service has been restarted.')
+    },
+
+    // share acl
+    share_acl_basic: T('Basic'),
+    share_acl_entries: T('ACL Entries'),
+
+    share_name_placeholder: T('Share Name'),
+    share_name_tooltip: T('Name that was created with the SMB share.'),
+
+    ae_who_sid_placeholder: T('SID'),
+    ae_who_sid_tooltip: T('Who this ACL entry applies to, shown as a\
+ <a href="https://docs.microsoft.com/en-us/windows/win32/secauthz/security-identifiers" target="_blank">Windows\
+ Security Identifier</a>. Either a <i>SID</i> or a <i>Domain</i> and <i>Name</i> is required for this ACL.'),
+
+    ae_who_name_domain_placeholder: T('Domain'),
+    ae_who_name_domain_tooltip: T('Domain for the user <i>Name</i>. Required when a <i>SID</i> is not entered.\
+ Local users have the SMB server NetBIOS name: <code>freenas\\smbusers</code>.'),
+
+    ae_who_name_name_placeholder: T('Name'),
+    ae_who_name_name_tooltip: T('Who this ACL entry applies to, shown as a user name. Requires adding the user <i>Domain</i>.'),
+
+    ae_perm_placeholder: T('Permission'),
+    ae_perm_tooltip: T('Predefined permission combinations:<br><i>Read</i>:\
+ Read access and Execute permission on the object (RX).<br><i>Change</i>: Read\
+ access, Execute permission, Write access, and Delete object (RXWD).<br><i>Full</i>:\
+ Read access, Execute permission, Write access, Delete object, change Permissions, and take Ownership (RXWDPO).<br><br>\
+ For more details, see <a href="https://www.samba.org/samba/docs/current/man-html/smbcacls.1.html" target="_blank">smbacls(1)</a>.'),
+
+    ae_type_placeholder: T('Type'),
+    ae_type_tooltip: T('How permissions are applied to the share.\
+ <i>Allowed</i> denies all permissions by default except those that are manually defined.\
+ <i>Denied</i> allows all permissions by default except those that are manually defined.'),
+
 };

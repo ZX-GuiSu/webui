@@ -12,17 +12,18 @@ import { AppLoaderService } from '../../../services/app-loader/app-loader.servic
 import { WebSocketService, NetworkService } from '../../../services/';
 import { EntityUtils } from '../../common/entity/utils';
 import { T } from '../../../translate-marker';
-import { DialogService } from '../../../services/dialog.service';
+import { DialogService, JailService } from '../../../services';
 import { regexValidator } from '../../common/entity/entity-form/validators/regex-validation';
+import { ipv4Validator, ipv6Validator } from '../../common/entity/entity-form/validators/ip-validation';
 import { EntityJobComponent } from '../../common/entity/entity-job';
-import { MatSnackBar, MatDialog } from '@angular/material';
+import { MatDialog } from '@angular/material/dialog';
 import helptext from '../../../helptext/plugins/plugins';
 
 @Component({
   selector: 'app-plugin-add',
   templateUrl: './plugin-add.component.html',
   styleUrls: ['../../common/entity/entity-form/entity-form.component.scss'],
-  providers: [EntityFormService, FieldRelationService, NetworkService, TranslateService],
+  providers: [EntityFormService, FieldRelationService, NetworkService, TranslateService, JailService],
 })
 export class PluginAddComponent implements OnInit {
 
@@ -40,8 +41,9 @@ export class PluginAddComponent implements OnInit {
       type: 'input',
       name: 'jail_name',
       placeholder: helptext.jail_name_placeholder,
+      tooltip: helptext.uuid_tooltip,
       required: true,
-      validation: [ Validators.required ]
+      validation: [ Validators.required, regexValidator(this.jailService.jailNameRegex) ]
     },
     {
       type: 'checkbox',
@@ -95,7 +97,7 @@ export class PluginAddComponent implements OnInit {
       name: 'ip4_addr',
       placeholder: helptext.ip4_addr_placeholder,
       tooltip: helptext.ip4_addr_tooltip,
-      validation : [ regexValidator(this.networkService.ipv4_regex) ],
+      validation : [ ipv4Validator('ip4_addr') ],
       relation: [{
         action: "ENABLE",
         connective: 'AND',
@@ -163,7 +165,7 @@ export class PluginAddComponent implements OnInit {
       name: 'ip6_addr',
       placeholder: helptext.ip6_addr_placeholder,
       tooltip: helptext.ip6_addr_tooltip,
-      validation : [ regexValidator(this.networkService.ipv6_regex) ],
+      validation : [ ipv6Validator('ip6_addr') ],
       relation: [{
         action: "ENABLE",
         connective: 'AND',
@@ -283,9 +285,9 @@ export class PluginAddComponent implements OnInit {
     protected ws: WebSocketService,
     protected dialog: DialogService,
     protected networkService: NetworkService,
-    protected snackBar: MatSnackBar,
     protected matdialog: MatDialog,
-    protected translate: TranslateService) {}
+    protected translate: TranslateService,
+    protected jailService: JailService) {}
 
   updateIpValidation() {
     const ip4AddrField = _.find(this.fieldConfig, {'name': 'ip4_addr'});
@@ -324,11 +326,11 @@ export class PluginAddComponent implements OnInit {
     this.ip6_interfaceField = _.find(this.fieldConfig, {'name': 'ip6_interface'});
     this.ip6_prefixField = _.find(this.fieldConfig, {'name': 'ip6_prefix'});
     // get interface options
-    this.ws.call('interface.query', [[["name", "rnin", "vnet0:"]]]).subscribe(
+    this.jailService.getInterfaceChoice().subscribe(
       (res)=>{
         for (let i in res) {
-          this.ip4_interfaceField.options.push({ label: res[i].name, value: res[i].name});
-          this.ip6_interfaceField.options.push({ label: res[i].name, value: res[i].name});
+          this.ip4_interfaceField.options.push({ label: res[i], value: i});
+          this.ip6_interfaceField.options.push({ label: res[i], value: i});
         }
       },
       (res)=>{

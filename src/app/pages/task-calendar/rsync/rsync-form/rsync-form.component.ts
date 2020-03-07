@@ -1,5 +1,5 @@
 import { Component, OnDestroy } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 
 import * as _ from 'lodash';
 
@@ -21,8 +21,10 @@ export class RsyncFormComponent implements OnDestroy {
   protected addCall = 'rsynctask.create';
   protected editCall = 'rsynctask.update';
   protected queryCall = 'rsynctask.query';
+  protected queryKey = 'id';
   protected route_success: string[] = ['tasks', 'rsync'];
   protected entityForm: EntityFormComponent;
+  protected pk: any;
   protected isEntity: boolean = true;
 
   protected preTaskName: string = 'rsync';
@@ -193,11 +195,15 @@ export class RsyncFormComponent implements OnDestroy {
   protected mode_subscription: any;
 
   constructor(protected router: Router,
+    protected aroute: ActivatedRoute,
     protected taskService: TaskService,
     protected userService: UserService,
     protected entityFormService: EntityFormService) {}
 
   preInit() {
+    this.aroute.params.subscribe(params => {
+      this.pk = parseInt(params['pk'], 10);
+    });
     this.user_field = _.find(this.fieldSets[0].config, { 'name': 'user' });
     
     this.userService.userQueryDSCache().subscribe((items) => {
@@ -216,6 +222,11 @@ export class RsyncFormComponent implements OnDestroy {
   }
 
   beforeSubmit(value){
+    /* Ignore 'extra' if undefined, submit [] if empty string, otherwise make an array splitting on comma, 
+        trimming spaces off the ends. Middleware splits on space, so user can use space and/or comma. */
+    if(value.extra || value.extra === '') {
+      value.extra === '' ? value.extra = [] : value.extra = _.filter(value.extra.split(',').map(_.trim));
+    }
     let spl = value.rsync_picker.split(" ");
     delete value.rsync_picker;
     const schedule = {}
@@ -228,6 +239,9 @@ export class RsyncFormComponent implements OnDestroy {
   }
 
   resourceTransformIncomingRestData(data) {
+    if (data.extra) {
+      data.extra = data.extra.toString();
+    }
     data['rsync_picker'] = data.schedule.minute + " " +
                           data.schedule.hour + " " +
                           data.schedule.dom + " " +

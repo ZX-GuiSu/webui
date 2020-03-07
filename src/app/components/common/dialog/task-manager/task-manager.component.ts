@@ -1,7 +1,10 @@
 import { Component, OnInit, ViewChild, OnDestroy } from '@angular/core';
-import { MatDialogRef, MatSort, MatTableDataSource, MatTable } from '@angular/material';
+import { MatDialogRef } from '@angular/material/dialog';
+import { MatSort } from '@angular/material/sort';
+import { MatTableDataSource, MatTable } from '@angular/material/table';
 import * as _ from 'lodash';
 import { TranslateService } from '@ngx-translate/core';
+import { LocaleService } from 'app/services/locale.service';
 import { Observable, Subscription } from 'rxjs/Rx';
 import { animate, state, style, transition, trigger } from '@angular/animations';
 
@@ -28,12 +31,13 @@ export class TaskManagerComponent implements OnInit, OnDestroy{
   displayedColumns = ['state', 'method', 'percent'];
   private subscrition: Subscription;
   public expandedElement: any | null;
+  public timeZone: string;
 
   constructor(
     public dialogRef: MatDialogRef<TaskManagerComponent>,
     private ws: WebSocketService,
     protected translate: TranslateService,
-    protected job: JobService) {
+    protected job: JobService, protected localeService: LocaleService) {
       this.dataSource = new MatTableDataSource<any>([]);
     }
 
@@ -47,16 +51,26 @@ export class TaskManagerComponent implements OnInit, OnDestroy{
           return b.time_started.$date - a.time_started.$date;
         });
         this.dataSource.sort = this.sort;
+        this.dataSource.data.forEach((i) => {
+          delete i.exception;
+        })
       },
       (err)=> {
 
       });
 
+      this.ws.call('system.info').subscribe((res) => {
+        this.timeZone = res.timezone;
+      })
+
       this.getData().subscribe(
-        (res) => {
+        (res) => { 
           res.percent = res.progress.percent;
           const targetRow = _.findIndex(this.dataSource.data, {'id': res.id});
           if (targetRow === -1) {
+            if (res.exception) {
+              delete res.exception;
+            }
             this.dataSource.data.push(res);
           } else {
             for (const key in this.dataSource.data[targetRow]) {
@@ -87,12 +101,16 @@ export class TaskManagerComponent implements OnInit, OnDestroy{
 
   getReadableDate(data: any) {
     if (data != null) {
-      return new Date(data.$date);
+      return this.localeService.formatDateTime(new Date(data.$date), this.timeZone);
     }
     return;
   }
 
   showLogs(element) {
     this.job.showLogs(element.id);
+  }
+
+  logRow(row) {
+    console.info(row)
   }
 }

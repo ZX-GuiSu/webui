@@ -1,5 +1,5 @@
 import { Component, Input, Inject, OnDestroy } from '@angular/core';
-import { MatDialog, MatDialogRef, MAT_DIALOG_DATA} from '@angular/material';
+import { MatDialog, MatDialogRef, MAT_DIALOG_DATA} from '@angular/material/dialog';
 import { Router } from '@angular/router';
 import { TranslateService } from '@ngx-translate/core';
 import { helptext_system_failover } from 'app/helptext/system/failover';
@@ -10,12 +10,14 @@ interface DialogData {
 
 @Component({
   selector: 'simple-failover-button',
-  template: `<button mat-button [color]="color" (click)="openDialog()">INITIATE FAILOVER</button>`,
+  template: `<button mat-button [style.opacity]="1" [color]="color" [disabled]="disabled" (click)="openDialog()"
+    ix-auto ix-auto-type="button" ix-auto-identifier="INITIATE FAILOVER">INITIATE FAILOVER</button>`,
 })
 
 export class SimpleFailoverBtnComponent implements OnDestroy {
 
   @Input() color:string = 'default';
+  @Input() disabled?: boolean = false;
   constructor(
     private dialog: MatDialog,
     protected matDialog: MatDialog,
@@ -38,7 +40,6 @@ export class SimpleFailoverBtnComponent implements OnDestroy {
     });
   }
  
-
   ngOnDestroy() { 
   }
 
